@@ -17,11 +17,12 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from app.db.base import Base
+from app.models.role_permission import RolePermission
+from app.models.user_role import UserRole
 from sqlalchemy import Boolean, DateTime, Index, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from app.db.base import Base
 
 
 class Role(Base):
@@ -89,18 +90,41 @@ class Role(Base):
         nullable=False,
     )
 
+#     users: Mapped[list["User"]] = relationship(
+#         "User",
+#         secondary=UserRole.__table__,
+#         back_populates="roles",
+#         # Mirror the explicit tracking columns here as well
+#         foreign_keys=[UserRole.user_id, UserRole.role_id],
+#         lazy="selectin",
+#     )
+#     permissions: Mapped[list["User"]] = relationship(
+#         "User",  # <-- ERROR: This should be "Permission"
+#         secondary=RolePermission.__table__,
+#         back_populates="roles",  # <-- ERROR: This should look for "roles" or "permissions" on the target model
+#         foreign_keys=[RolePermission.assigned_by, RolePermission.permission_id], # <-- ERROR: Wrong bridge keys
+#         lazy="selectin",
+#   )
+    # -------------------------
+    # RBAC RELATIONSHIPS
+    # -------------------------
     users: Mapped[list["User"]] = relationship(
         "User",
-        secondary="user_roles",
+        secondary="user_roles",  # Can use string or variable if registered
         back_populates="roles",
+        foreign_keys="[UserRole.user_id, UserRole.role_id]",
         lazy="selectin",
     )
 
     permissions: Mapped[list["Permission"]] = relationship(
         "Permission",
-        secondary="role_permissions",
+        secondary=RolePermission.__table__,
+        back_populates="roles",
+        # Pass the exact column bindings to satisfy the JoinCondition compiler
+        foreign_keys=[RolePermission.role_id, RolePermission.permission_id],
         lazy="selectin",
     )
+
 
     def __repr__(self) -> str:
         """

@@ -8,11 +8,20 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any, Dict
 
 from app.db.base import Base
+# Explicitly import the association model class to hook into its table object
+from app.models.user_role import UserRole
 from sqlalchemy import Boolean, DateTime, Index, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+# -------------------------------------------------------------
+# Stateful Token Tracking Matrix (Simulated Cache/Store)
+# -------------------------------------------------------------
+# Maps refresh_jti -> token state metadata
+ACTIVE_REFRESH_TOKENS: Dict[str, Dict[str, Any]] = {}
 
 
 class User(Base):
@@ -75,8 +84,10 @@ class User(Base):
     # -------------------------
     roles: Mapped[list["Role"]] = relationship(
         "Role",
-        secondary="user_roles",
+        secondary=UserRole.__table__,
         back_populates="users",
+        # Explicitly declare tracking keys here to satisfy the User-side JoinCondition compiler
+        foreign_keys=[UserRole.user_id, UserRole.role_id],
         lazy="selectin",
     )
 

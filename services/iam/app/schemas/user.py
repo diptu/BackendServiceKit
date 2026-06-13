@@ -148,3 +148,13 @@ class LoginResponse(BaseModel):
     """
     token: TokenOut
     user: UserOut
+
+
+class TokenMatrixResponse(BaseModel):
+    """
+    Stateful dual-token matrix response schema.
+    """
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user: UserOut

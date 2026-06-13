@@ -9,22 +9,26 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from app.db.base import Base
-from app.models.UserProfile.user_social_link import UserSocialLink
 from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
-    # Import the User model only for type checkers to avoid runtime import cycles.
+    # Use standard type checking guards for all relational targets to keep imports linear
     from app.models.user import User
+    from app.models.user_social_link import UserSocialLink
 
 
 class UserProfile(Base):
+    """
+    Extended profile metadata bound 1-to-1 with Core Identity Users.
+    Uses a shared primary key strategy to guarantee relational constraint symmetry.
+    """
     __tablename__ = "user_profiles"
 
-    # -------------------------
-    # 1–1 relationship with User
-    # -------------------------
+    # -------------------------------------------------------------
+    # Primary Identity / 1–1 mapping with User
+    # -------------------------------------------------------------
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -38,28 +42,30 @@ class UserProfile(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
+        nullable=False,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
+        nullable=False,
     )
 
-    # -------------------------
-    # RELATIONSHIP BACK TO USER
-    # -------------------------
+    # -------------------------------------------------------------
+    # RELATIONSHIPS
+    # -------------------------------------------------------------
     user: Mapped["User"] = relationship(
         "User",
         back_populates="profile",
     )
 
-    # -------------------------
-    # SOCIAL LINKS (1–N)
-    # -------------------------
     social_links: Mapped[list["UserSocialLink"]] = relationship(
         "UserSocialLink",
         back_populates="profile",
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+
+    def __repr__(self) -> str:
+        return f"UserProfile(user_id={self.user_id}, full_name='{self.full_name}')"

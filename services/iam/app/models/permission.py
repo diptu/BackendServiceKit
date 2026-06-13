@@ -15,11 +15,11 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from app.db.base import Base
+from app.models.role_permission import RolePermission
 from sqlalchemy import DateTime, Index, String, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
-
-from app.db.base import Base
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
 class Permission(Base):
@@ -28,18 +28,21 @@ class Permission(Base):
 
     Attributes:
         id: Unique permission identifier.
-        name: Permission key (e.g. "users:create").
+        name: Human-readable name.
+        slug: Unique machine-readable permission key (e.g. "users:create").
         resource: Resource name (e.g. "users").
         action: Action name (e.g. "create").
         description: Human-readable description.
         created_at: Creation timestamp.
         updated_at: Last update timestamp.
+        roles: Roles assigned to this permission.
     """
 
     __tablename__ = "permissions"
 
     __table_args__ = (
         Index("idx_permissions_name", "name"),
+        Index("idx_permissions_slug", "slug"),
         Index("idx_permissions_resource", "resource"),
         Index("idx_permissions_action", "action"),
     )
@@ -52,6 +55,12 @@ class Permission(Base):
 
     name: Mapped[str] = mapped_column(
         String(255),
+        unique=True,
+        nullable=False,
+    )
+
+    slug: Mapped[str] = mapped_column(
+        String(100),
         unique=True,
         nullable=False,
     )
@@ -84,6 +93,17 @@ class Permission(Base):
         nullable=False,
     )
 
+    # -------------------------------------------------------------
+    # RBAC Relationships
+    # -------------------------------------------------------------
+    roles: Mapped[list["Role"]] = relationship(
+        "Role",
+        secondary=RolePermission.__table__,
+        back_populates="permissions",
+        # Explicitly declare the bridge join vectors to prevent ambiguous key compilation
+        foreign_keys=[RolePermission.role_id, RolePermission.permission_id],
+    )
+
     def __repr__(self) -> str:
         """
         Return string representation of permission.
@@ -94,7 +114,7 @@ class Permission(Base):
         return (
             f"Permission("
             f"id={self.id}, "
-            f"name='{self.name}', "
+            f"slug='{self.slug}', "
             f"resource='{self.resource}', "
             f"action='{self.action}'"
             f")"

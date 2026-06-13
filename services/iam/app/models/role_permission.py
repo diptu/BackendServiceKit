@@ -1,54 +1,31 @@
-"""
-Role-permission association model.
-
-Represents a permission assignment to a role.
-"""
-
+# app/models/role_permission.py
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
+from app.db.base import Base
 from sqlalchemy import DateTime, ForeignKey, Index, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base
+if TYPE_CHECKING:
+    from app.models.permission import Permission
+    from app.models.role import Role
 
 
 class RolePermission(Base):
     """
-    Role-permission assignment model.
-
-    Attributes:
-        id: Unique assignment identifier.
-        role_id: Role receiving the permission.
-        permission_id: Assigned permission.
-        assigned_by: User that granted the permission.
-        assigned_at: Assignment timestamp.
-        expires_at: Optional expiration timestamp.
-        created_at: Creation timestamp.
-        updated_at: Last update timestamp.
-        role: Related role.
-        permission: Related permission.
+    Explicit association model mapping the many-to-many relationship
+    between Roles and Permissions, storing metadata (e.g., who assigned it).
     """
-
     __tablename__ = "role_permissions"
 
     __table_args__ = (
-        UniqueConstraint(
-            "role_id",
-            "permission_id",
-            name="uq_role_permission",
-        ),
-        Index(
-            "idx_role_permissions_role_id",
-            "role_id",
-        ),
-        Index(
-            "idx_role_permissions_permission_id",
-            "permission_id",
-        ),
+        UniqueConstraint("role_id", "permission_id", name="uq_role_permission"),
+        Index("idx_role_permissions_role_id", "role_id"),
+        Index("idx_role_permissions_permission_id", "permission_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -57,41 +34,22 @@ class RolePermission(Base):
         default=uuid.uuid4,
     )
 
+    # CRITICAL: Ensure ForeignKey targets match table names exactly
     role_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey(
-            "roles.id",
-            ondelete="CASCADE",
-        ),
+        ForeignKey("roles.id", ondelete="CASCADE"),
         nullable=False,
     )
 
     permission_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey(
-            "permissions.id",
-            ondelete="CASCADE",
-        ),
+        ForeignKey("permissions.id", ondelete="CASCADE"),
         nullable=False,
     )
 
     assigned_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey(
-            "users.id",
-            ondelete="SET NULL",
-        ),
-        nullable=True,
-    )
-
-    assigned_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
-
-    expires_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
 
@@ -101,40 +59,15 @@ class RolePermission(Base):
         nullable=False,
     )
 
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
-
+    # Parents lookup (using string names to break cyclic compilation)
     role: Mapped["Role"] = relationship(
         "Role",
-        lazy="selectin",
+        foreign_keys=[role_id],
+        viewonly=True,
     )
-
+    
     permission: Mapped["Permission"] = relationship(
         "Permission",
-        lazy="selectin",
+        foreign_keys=[permission_id],
+        viewonly=True,
     )
-
-    assigned_by_user: Mapped["User | None"] = relationship(
-        "User",
-        foreign_keys=[assigned_by],
-        lazy="selectin",
-    )
-
-    def __repr__(self) -> str:
-        """
-        Return string representation.
-
-        Returns:
-            str: Role-permission assignment representation.
-        """
-        return (
-            f"RolePermission("
-            f"id={self.id}, "
-            f"role_id={self.role_id}, "
-            f"permission_id={self.permission_id}"
-            f")"
-        )
