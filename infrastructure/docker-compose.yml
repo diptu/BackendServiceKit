@@ -1,0 +1,56 @@
+services:
+
+  iam:
+    build:
+      context: ..
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: iam
+        SERVICE_PATH: services/iam
+    ports:
+      - "8001:8000"
+    restart: unless-stopped
+
+  payment:
+    build:
+      context: ..
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: payment
+        SERVICE_PATH: services/payment
+    ports:
+      - "8002:8000"
+    restart: unless-stopped
+
+  search:
+    build:
+      context: ..
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: search
+        SERVICE_PATH: services/search
+    ports:
+      - "8003:8000"
+    restart: unless-stopped
+
+  notification:
+    build:
+      context: ..
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: notification
+        SERVICE_PATH: services/notification
+    ports:
+      - "8004:8000"
+    restart: unless-stopped
+
+  analytics:
+    build:
+      context: ..
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: analytics
+        SERVICE_PATH: services/analytics
+    ports:
+      - "8005:8000"
+    restart: unless-stopped

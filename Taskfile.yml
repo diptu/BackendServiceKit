@@ -1,0 +1,253 @@
+version: "3"
+
+vars:
+  COMPOSE_FILE: infrastructure/docker-compose.yml
+
+  # 👇 single source of truth for all services (expanded IAM-first architecture)
+  SERVICES: iam payment search notification analytics
+
+  # IAM-specific components
+  IAM_SERVICE: iam
+
+
+# =========================
+# CORE
+# =========================
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+
+# =========================
+# BOOTSTRAP / CLEAN
+# =========================
+
+  bootstrap:
+    desc: Generate full mono-repo structure (IAM + policy-ready)
+    cmds:
+      - mkdir -p docs scripts shared/core shared/db shared/security shared/observability shared/utils
+      - mkdir -p infrastructure/nginx infrastructure/postgres infrastructure/redis infrastructure/observability/grafana
+
+      # IAM-specific bootstrap directories
+      - mkdir -p services/iam/app/{api,core,domain,services,policy_engine,persistence,audit,events,policies}
+      - mkdir -p services/iam/tests
+
+      # other services scaffolding
+      - |
+        for s in {{.SERVICES}}; do
+          mkdir -p services/$s/app/api
+          mkdir -p services/$s/app/core
+          mkdir -p services/$s/app/models
+          mkdir -p services/$s/tests
+
+          touch services/$s/app/main.py
+          touch services/$s/pyproject.toml
+          touch services/$s/uv.lock
+          touch services/$s/.env.example
+        done
+
+      # IAM core files (important additions)
+      - touch services/iam/app/main.py
+      - touch services/iam/app/core/config.py
+      - touch services/iam/app/core/security.py
+
+      # policy engine skeleton
+      - touch services/iam/app/policy_engine/{evaluator.py,context.py,decision.py,effect.py,registry.py}
+
+      # audit + events
+      - touch services/iam/app/audit/{logger.py,events.py,sink.py}
+      - touch services/iam/app/events/{publisher.py,consumer.py,schemas.py}
+
+      # policies
+      - mkdir -p services/iam/app/policies/examples
+      - touch services/iam/app/policies/{schema.py}
+      - touch services/iam/app/policies/examples/{admin.json,user.json,payment.json}
+
+      # shared IAM SDK
+      - mkdir -p shared/security/auth shared/security/authorization
+      - touch shared/security/auth/{jwt.py,session.py,password.py}
+      - touch shared/security/authorization/{client.py,decorators.py,guards.py,types.py}
+
+      # root files
+      - touch README.md LICENSE main.py pyproject.toml .env.example
+
+      # infra files
+      - touch {{.COMPOSE_FILE}}
+
+    msg: "🚀 IAM-ready monorepo scaffold created"
+
+
+  clean:
+    desc: Remove generated project structure (safe reset)
+    cmds:
+      - rm -rf docs scripts shared services infrastructure
+      - rm -f README.md LICENSE main.py pyproject.toml .env.example
+    msg: "🧹 Clean reset done"
+
+
+# =========================
+# SERVICE OPERATIONS
+# =========================
+
+  new:
+    desc: Create a new service (NAME required)
+    cmds:
+      - |
+        mkdir -p services/{{.NAME}}/app/{api,core}
+        mkdir -p services/{{.NAME}}/tests
+        touch services/{{.NAME}}/app/main.py
+        touch services/{{.NAME}}/pyproject.toml
+        touch services/{{.NAME}}/uv.lock
+        touch services/{{.NAME}}/.env.example
+        echo "Created service: {{.NAME}}"
+
+
+# =========================
+# IAM BOOTSTRAP / OPERATIONS
+# =========================
+
+  iam:seed:
+    desc: Seed IAM with default roles, policies, and admin user
+    cmds:
+      - cd services/iam && uv run python -m app.scripts.seed_iam
+
+  iam:policy:sync:
+    desc: Sync policy definitions into DB
+    cmds:
+      - cd services/iam && uv run python -m app.scripts.sync_policies
+
+  iam:audit:replay:
+    desc: Replay audit logs (debug/forensics)
+    cmds:
+      - cd services/iam && uv run python -m app.scripts.replay_audit
+
+
+# =========================
+# DEV (DOCKER)
+# =========================
+
+  dev:
+    desc: Run all services
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} up --build
+
+
+  dev:down:
+    desc: Stop all services
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} down
+
+
+  dev:logs:
+    desc: Logs all services
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} logs -f
+
+
+  logs:
+    desc: Logs a specific service (SERVICE=iam)
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} logs -f {{.SERVICE}}
+
+
+  build:
+    desc: Build service (SERVICE required)
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} build {{.SERVICE}}
+
+
+  build:all:
+    desc: Build all services
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} build
+
+
+# =========================
+# TESTING
+# =========================
+
+  test:
+    desc: Run tests for all services
+    cmds:
+      - |
+        set -e
+        for s in {{.SERVICES}}; do
+          echo "🧪 Testing $s"
+          (cd services/$s && uv run pytest)
+        done
+
+
+  test:one:
+    desc: Run tests for one service (SERVICE=iam)
+    cmds:
+      - cd services/{{.SERVICE}} && uv run pytest
+
+
+# =========================
+# LINT & FORMAT
+# =========================
+
+  lint:
+    desc: Lint all services
+    cmds:
+      - |
+        set -e
+        for s in {{.SERVICES}}; do
+          echo "🔍 Linting $s"
+          (cd services/$s && uv run ruff check .)
+        done
+
+
+  format:
+    desc: Format all services
+    cmds:
+      - |
+        for s in {{.SERVICES}}; do
+          (cd services/$s && uv run ruff format .)
+        done
+
+
+# =========================
+# DOCKER SINGLE SERVICE OPS
+# =========================
+
+  docker:build:
+    desc: Build a single service (SERVICE=iam)
+    cmds:
+      - docker compose -f infrastructure/docker-compose.yml build {{.SERVICE}}
+
+  docker:up:
+    desc: Run a single service (SERVICE=iam)
+    cmds:
+      - docker compose -f infrastructure/docker-compose.yml up --build {{.SERVICE}}
+
+  docker:down:
+    desc: Stop a single service (SERVICE=iam)
+    cmds:
+      - docker compose -f infrastructure/docker-compose.yml stop {{.SERVICE}}
+
+  docker:logs:
+    desc: Logs single service (SERVICE=iam)
+    cmds:
+      - docker compose -f infrastructure/docker-compose.yml logs -f {{.SERVICE}}
+
+  docker:rebuild:
+    desc: Clean rebuild single service (SERVICE=iam)
+    cmds:
+      - docker compose -f infrastructure/docker-compose.yml build --no-cache {{.SERVICE}}
+
+
+# =========================
+# CLEANUP
+# =========================
+
+  clean:docker:
+    desc: Clean docker + caches
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} down -v
+      - docker system prune -f
+      - find . -type d -name "__pycache__" -exec rm -rf {} +
+      - find . -name "*.pyc" -delete
