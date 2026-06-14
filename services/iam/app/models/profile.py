@@ -128,7 +128,7 @@ class UserProfile(Base):
         nullable=False,
     )
 
-    user: Mapped["User"] = relationship(  # noqa: F821
+    user: Mapped[User] = relationship(
         "User",
         back_populates="profile",
         lazy="selectin",

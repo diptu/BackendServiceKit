@@ -114,7 +114,7 @@ class Role(Base):
     # -------------------------
     # RBAC RELATIONSHIPS
     # -------------------------
-    users: Mapped[list["User"]] = relationship(  # noqa: F821
+    users: Mapped[list[User]] = relationship(
         "User",
         secondary="user_roles",  # Can use string or variable if registered
         back_populates="roles",
@@ -122,7 +122,7 @@ class Role(Base):
         lazy="selectin",
     )
 
-    permissions: Mapped[list["Permission"]] = relationship(  # noqa: F821
+    permissions: Mapped[list[Permission]] = relationship(
         "Permission",
         secondary=RolePermission.__table__,
         back_populates="roles",

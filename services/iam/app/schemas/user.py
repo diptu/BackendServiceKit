@@ -150,7 +150,7 @@ class TokenOut(BaseModel):
     """
 
     access_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105
 
 
 class LoginResponse(BaseModel):
@@ -169,5 +169,5 @@ class TokenMatrixResponse(BaseModel):
 
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105
     user: UserOut

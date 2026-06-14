@@ -54,7 +54,7 @@ async def is_authenticated(request: Request) -> dict[str, Any]:
         token_type: str | None = payload.get("type")
 
         # Basic claim integrity checks (ensuring it's an access token specifically)
-        if username is None or token_type != "access":
+        if username is None or token_type != "access":  # noqa: S105
             raise credentials_exception
 
         return payload

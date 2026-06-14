@@ -34,6 +34,6 @@ class UserSocialLink(Base):
     provider: Mapped[str] = mapped_column(String(50), nullable=False)  # e.g., 'github'
     url: Mapped[str] = mapped_column(String(500), nullable=False)
 
-    profile: Mapped["UserProfile"] = relationship(
+    profile: Mapped[UserProfile] = relationship(
         "UserProfile", back_populates="social_links"
     )
