@@ -17,6 +17,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from app.core.rbac import RoleEnum
 from app.db.base import Base
 from app.models.role_permission import RolePermission
 from app.models.user_role import UserRole
@@ -46,6 +47,8 @@ class Role(Base):
     __table_args__ = (
         Index("idx_roles_name", "name"),
         Index("idx_roles_slug", "slug"),
+        Index("idx_roles_is_system", "is_system"),
+        Index("idx_roles_is_active", "is_active"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -53,17 +56,21 @@ class Role(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
-
+    # =====================================================
+    # ROLE METADATA
+    # =====================================================
     name: Mapped[str] = mapped_column(
         String(255),
         unique=True,
         nullable=False,
+        default=RoleEnum.GUEST.value.replace("_", " ").title(),
     )
 
     slug: Mapped[str] = mapped_column(
         String(100),
         unique=True,
         nullable=False,
+        default=RoleEnum.GUEST.value,
     )
 
     description: Mapped[str | None] = mapped_column(
@@ -82,7 +89,21 @@ class Role(Base):
         server_default=func.now(),
         nullable=False,
     )
-
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+        server_default="true",
+        doc="Soft disable flag.",
+    )
+    # =====================================================
+    # AUDIT FIELDS
+    # =====================================================
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -90,21 +111,6 @@ class Role(Base):
         nullable=False,
     )
 
-#     users: Mapped[list["User"]] = relationship(
-#         "User",
-#         secondary=UserRole.__table__,
-#         back_populates="roles",
-#         # Mirror the explicit tracking columns here as well
-#         foreign_keys=[UserRole.user_id, UserRole.role_id],
-#         lazy="selectin",
-#     )
-#     permissions: Mapped[list["User"]] = relationship(
-#         "User",  # <-- ERROR: This should be "Permission"
-#         secondary=RolePermission.__table__,
-#         back_populates="roles",  # <-- ERROR: This should look for "roles" or "permissions" on the target model
-#         foreign_keys=[RolePermission.assigned_by, RolePermission.permission_id], # <-- ERROR: Wrong bridge keys
-#         lazy="selectin",
-#   )
     # -------------------------
     # RBAC RELATIONSHIPS
     # -------------------------
@@ -126,17 +132,33 @@ class Role(Base):
     )
 
 
-    def __repr__(self) -> str:
-        """
-        Return string representation of role.
+    # =====================================================
+    # HELPER PROPERTIES
+    # =====================================================
 
-        Returns:
-            str: Role representation.
-        """
+    @property
+    def permission_count(self) -> int:
+        """Return total assigned permissions."""
+        return len(self.permissions)
+
+    @property
+    def user_count(self) -> int:
+        """Return total assigned users."""
+        return len(self.users)
+
+    # =====================================================
+    # REPRESENTATION
+    # =====================================================
+
+    def __repr__(self) -> str:
         return (
             f"Role("
             f"id={self.id}, "
-            f"name='{self.name}', "
-            f"slug='{self.slug}'"
+            f"slug='{self.slug}', "
+            f"is_system={self.is_system}, "
+            f"is_active={self.is_active}"
             f")"
         )
+
+    def __str__(self) -> str:
+        return self.slug

@@ -1,0 +1,227 @@
+{
+  "permissions": [
+    { "id": "p1", "name": "repo:source:read", "description": "Read source code repositories" },
+    { "id": "p2", "name": "repo:source:write", "description": "Write/Push to source code repositories" },
+    { "id": "p3", "name": "repo:prod-infra:deploy", "description": "Deploy to production infrastructure" },
+    { "id": "p4", "name": "hr:salary:read", "description": "Read HR employee salary data" },
+    { "id": "p5", "name": "hr:salary:write", "description": "Modify HR employee salary data" },
+    { "id": "p6", "name": "finance:reports:read", "description": "Read financial statement reports" },
+    { "id": "p7", "name": "billing:aws:write", "description": "Modify AWS billing configurations" },
+    { "id": "p8", "name": "audit:logs:read", "description": "Read system security audit logs" }
+  ],
+  "roles": [
+    {
+      "slug": "base_user",
+      "name": "Base User",
+      "inherits_from": null,
+      "permissions": []
+    },
+    {
+      "slug": "junior_engineer",
+      "name": "Junior Engineer",
+      "inherits_from": "base_user",
+      "permissions": ["repo:source:read"]
+    },
+    {
+      "slug": "senior_engineer",
+      "name": "Senior Engineer",
+      "inherits_from": "junior_engineer",
+      "permissions": ["repo:source:write"]
+    },
+    {
+      "slug": "devops",
+      "name": "DevOps",
+      "inherits_from": "senior_engineer",
+      "permissions": ["repo:prod-infra:deploy", "billing:aws:write"]
+    },
+    {
+      "slug": "executive",
+      "name": "Executive",
+      "inherits_from": "base_user",
+      "permissions": ["hr:salary:read", "finance:reports:read"]
+    },
+    {
+      "slug": "engineering_manager",
+      "name": "Engineering Manager",
+      "inherits_from": "senior_engineer",
+      "permissions": ["hr:salary:read"]
+    },
+    {
+      "slug": "security_admin",
+      "name": "Security Administrator",
+      "inherits_from": "base_user",
+      "permissions": ["audit:logs:read"]
+    },
+    {
+      "slug": "hr_admin",
+      "name": "HR Administrator",
+      "inherits_from": "base_user",
+      "permissions": ["hr:salary:read", "hr:salary:write"]
+    },
+    {
+      "slug": "finance_admin",
+      "name": "Finance Administrator",
+      "inherits_from": "base_user",
+      "permissions": ["finance:reports:read", "billing:aws:write"]
+    },
+    {
+      "slug": "contractor_qa",
+      "name": "Contractor QA",
+      "inherits_from": "base_user",
+      "permissions": ["repo:source:read"]
+    },
+    {
+      "slug": "product_manager",
+      "name": "Product Manager",
+      "inherits_from": "base_user",
+      "permissions": ["repo:source:read"]
+    }
+  ],
+  "users": [
+    {
+      "id": "ec2fa5c6-bae8-4afe-a90b-fdb8ebafc061",
+      "email": "alice@company.com",
+      "password_hash": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36wKth6B7O0WMTM5BB8aWiO",
+      "is_active": true,
+      "roles": ["executive"]
+    },
+    {
+      "id": "ec2fa5c6-bae8-4afe-a90b-fdb8ebafc062",
+      "email": "bob@company.com",
+      "password_hash": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36wKth6B7O0WMTM5BB8aWiO",
+      "is_active": true,
+      "roles": ["engineering_manager"]
+    },
+    {
+      "id": "ec2fa5c6-bae8-4afe-a90b-fdb8ebafc063",
+      "email": "charlie@company.com",
+      "password_hash": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36wKth6B7O0WMTM5BB8aWiO",
+      "is_active": true,
+      "roles": ["senior_engineer"]
+    },
+    {
+      "id": "ec2fa5c6-bae8-4afe-a90b-fdb8ebafc064",
+      "email": "dana@company.com",
+      "password_hash": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36wKth6B7O0WMTM5BB8aWiO",
+      "is_active": true,
+      "roles": ["devops"]
+    },
+    {
+      "id": "ec2fa5c6-bae8-4afe-a90b-fdb8ebafc065",
+      "email": "eli@company.com",
+      "password_hash": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36wKth6B7O0WMTM5BB8aWiO",
+      "is_active": true,
+      "roles": ["junior_engineer"]
+    },
+    {
+      "id": "ec2fa5c6-bae8-4afe-a90b-fdb8ebafc066",
+      "email": "fiona@company.com",
+      "password_hash": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36wKth6B7O0WMTM5BB8aWiO",
+      "is_active": true,
+      "roles": ["security_admin"]
+    },
+    {
+      "id": "ec2fa5c6-bae8-4afe-a90b-fdb8ebafc067",
+      "email": "george@company.com",
+      "password_hash": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36wKth6B7O0WMTM5BB8aWiO",
+      "is_active": true,
+      "roles": ["hr_admin"]
+    },
+    {
+      "id": "ec2fa5c6-bae8-4afe-a90b-fdb8ebafc068",
+      "email": "hannah@company.com",
+      "password_hash": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36wKth6B7O0WMTM5BB8aWiO",
+      "is_active": true,
+      "roles": ["finance_admin"]
+    },
+    {
+      "id": "ec2fa5c6-bae8-4afe-a90b-fdb8ebafc069",
+      "email": "ian@company.com",
+      "password_hash": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36wKth6B7O0WMTM5BB8aWiO",
+      "is_active": true,
+      "roles": ["contractor_qa"]
+    },
+    {
+      "id": "ec2fa5c6-bae8-4afe-a90b-fdb8ebafc070",
+      "email": "jack@company.com",
+      "password_hash": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36wKth6B7O0WMTM5BB8aWiO",
+      "is_active": true,
+      "roles": ["product_manager"]
+    }
+  ],
+  "matrix_validation_tests": [
+    {
+      "test_name": "Charlie can write to source code (inherited via SeniorEngineer)",
+      "user_email": "charlie@company.com",
+      "resource": "repo:source",
+      "action": "write",
+      "expected_authorized": true
+    },
+    {
+      "test_name": "Eli cannot deploy production infrastructure (JuniorEngineer constraint)",
+      "user_email": "eli@company.com",
+      "resource": "repo:prod-infra",
+      "action": "deploy",
+      "expected_authorized": false
+    },
+    {
+      "test_name": "Dana can deploy infrastructure (Explicit DevOps permission)",
+      "user_email": "dana@company.com",
+      "resource": "repo:prod-infra",
+      "action": "deploy",
+      "expected_authorized": true
+    },
+    {
+      "test_name": "Alice cannot write to source code (Executive isolation)",
+      "user_email": "alice@company.com",
+      "resource": "repo:source",
+      "action": "write",
+      "expected_authorized": false
+    },
+    {
+      "test_name": "Alice can read HR salaries",
+      "user_email": "alice@company.com",
+      "resource": "hr:salary",
+      "action": "read",
+      "expected_authorized": true
+    },
+    {
+      "test_name": "Bob cannot modify salaries (Managers can only read, not write)",
+      "user_email": "bob@company.com",
+      "resource": "hr:salary",
+      "action": "write",
+      "expected_authorized": false
+    },
+    {
+      "test_name": "George cannot read source code (HR Admin boundary)",
+      "user_email": "george@company.com",
+      "resource": "repo:source",
+      "action": "read",
+      "expected_authorized": false
+    },
+    {
+      "test_name": "Ian cannot write source code (QA contract restriction)",
+      "user_email": "ian@company.com",
+      "resource": "repo:source",
+      "action": "write",
+      "expected_authorized": false
+    },
+    {
+      "test_name": "Fiona can read security logs",
+      "user_email": "fiona@company.com",
+      "resource": "audit:logs",
+      "action": "read",
+      "expected_authorized": true
+    }
+  ],
+  "chaos_boundary_metadata": {
+    "role_change_propagation_test": {
+      "target_user_id": "ec2fa5c6-bae8-4afe-a90b-fdb8ebafc065",
+      "initial_role": "junior_engineer",
+      "promoted_role": "senior_engineer",
+      "validation_resource": "repo:source",
+      "validation_action": "write"
+    },
+    "token_bloat_threshold_bytes": 8192
+  }
+}
