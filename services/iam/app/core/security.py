@@ -3,10 +3,11 @@ from typing import Any
 
 import bcrypt
 import jwt
-from app.core.config import settings
 from fastapi import HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
+
+from app.core.config import settings
 
 # Setup standard OAuth2 scheme mapping for automated schema documentation
 # Pointing to our modular RBAC login path

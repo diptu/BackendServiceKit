@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 # BASE
 # =========================================================
 
+
 class UserSocialLinkBase(BaseModel):
     """
     Shared fields for social links.
@@ -36,6 +37,7 @@ class UserSocialLinkBase(BaseModel):
 # CREATE
 # =========================================================
 
+
 class UserSocialLinkCreate(UserSocialLinkBase):
     """
     Create a social link for a user.
@@ -47,6 +49,7 @@ class UserSocialLinkCreate(UserSocialLinkBase):
 # =========================================================
 # UPDATE
 # =========================================================
+
 
 class UserSocialLinkUpdate(BaseModel):
     """
@@ -65,6 +68,7 @@ class UserSocialLinkUpdate(BaseModel):
 # =========================================================
 # INTERNAL DB MODEL
 # =========================================================
+
 
 class UserSocialLinkInDB(BaseModel):
     """
@@ -89,6 +93,7 @@ class UserSocialLinkInDB(BaseModel):
 # =========================================================
 # PUBLIC RESPONSE
 # =========================================================
+
 
 class UserSocialLinkOut(UserSocialLinkBase):
     """

@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # BASE
 # =========================================================
 
+
 class UserProfileBase(BaseModel):
     """
     Shared profile fields.
@@ -36,6 +37,7 @@ class UserProfileBase(BaseModel):
 # CREATE
 # =========================================================
 
+
 class UserProfileCreate(UserProfileBase):
     """
     Create user profile.
@@ -47,6 +49,7 @@ class UserProfileCreate(UserProfileBase):
 # =========================================================
 # UPDATE
 # =========================================================
+
 
 class UserProfileUpdate(BaseModel):
     """
@@ -65,6 +68,7 @@ class UserProfileUpdate(BaseModel):
 # =========================================================
 # INTERNAL DB MODEL
 # =========================================================
+
 
 class UserProfileInDB(BaseModel):
     """
@@ -86,6 +90,7 @@ class UserProfileInDB(BaseModel):
 # =========================================================
 # PUBLIC RESPONSE
 # =========================================================
+
 
 class UserProfileOut(UserProfileBase):
     """

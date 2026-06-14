@@ -18,10 +18,12 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 # BASE (shared fields)
 # =========================================================
 
+
 class UserBase(BaseModel):
     """
     Shared user fields.
     """
+
     email: EmailStr = Field(..., max_length=255)
 
 
@@ -29,16 +31,19 @@ class UserBase(BaseModel):
 # CREATE
 # =========================================================
 
+
 class UserCreate(UserBase):
     """
     Schema for creating a new user.
     """
+
     password: str = Field(..., min_length=8, max_length=128)
 
 
 # =========================================================
 # UPDATE
 # =========================================================
+
 
 class UserUpdate(BaseModel):
     """
@@ -56,6 +61,7 @@ class UserUpdate(BaseModel):
 # =========================================================
 # INTERNAL (DB-facing / service layer)
 # =========================================================
+
 
 class UserInDB(BaseModel):
     """
@@ -87,10 +93,12 @@ class UserInDB(BaseModel):
 # PUBLIC RESPONSE
 # =========================================================
 
+
 class RoleOut(BaseModel):
     """
     Minimal role representation for API responses.
     """
+
     id: uuid.UUID
     name: str
 
@@ -101,6 +109,7 @@ class UserProfileOut(BaseModel):
     """
     Optional profile exposure.
     """
+
     full_name: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -134,10 +143,12 @@ class UserOut(UserBase):
 # AUTH RESPONSE (optional but useful)
 # =========================================================
 
+
 class TokenOut(BaseModel):
     """
     JWT token response schema.
     """
+
     access_token: str
     token_type: str = "bearer"
 
@@ -146,6 +157,7 @@ class LoginResponse(BaseModel):
     """
     Login response combining token + user.
     """
+
     token: TokenOut
     user: UserOut
 
@@ -154,6 +166,7 @@ class TokenMatrixResponse(BaseModel):
     """
     Stateful dual-token matrix response schema.
     """
+
     access_token: str
     refresh_token: str
     token_type: str = "bearer"

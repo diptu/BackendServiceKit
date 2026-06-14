@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # BASE
 # =========================================================
 
+
 class PermissionBase(BaseModel):
     """
     Shared permission fields.
@@ -37,16 +38,19 @@ class PermissionBase(BaseModel):
 # CREATE
 # =========================================================
 
+
 class PermissionCreate(PermissionBase):
     """
     Schema for creating a permission.
     """
+
     pass
 
 
 # =========================================================
 # UPDATE
 # =========================================================
+
 
 class PermissionUpdate(BaseModel):
     """
@@ -67,6 +71,7 @@ class PermissionUpdate(BaseModel):
 # =========================================================
 # INTERNAL (DB LAYER)
 # =========================================================
+
 
 class PermissionInDB(BaseModel):
     """
@@ -90,6 +95,7 @@ class PermissionInDB(BaseModel):
 # PUBLIC RESPONSE
 # =========================================================
 
+
 class PermissionOut(PermissionBase):
     """
     Public API response schema.
@@ -111,6 +117,7 @@ class PermissionOut(PermissionBase):
 # =========================================================
 # LIGHTWEIGHT DTO (for RBAC + policy engine)
 # =========================================================
+
 
 class PermissionShortOut(BaseModel):
     """

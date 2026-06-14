@@ -8,12 +8,16 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class UserProfile(Base):
@@ -101,12 +105,10 @@ class UserProfile(Base):
         default=dict,
     )
 
-
     timezone: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
-
 
     locale: Mapped[str | None] = mapped_column(
         String(20),
@@ -126,7 +128,7 @@ class UserProfile(Base):
         nullable=False,
     )
 
-    user: Mapped["User"] = relationship(
+    user: Mapped["User"] = relationship(  # noqa: F821
         "User",
         back_populates="profile",
         lazy="selectin",
@@ -140,10 +142,7 @@ class UserProfile(Base):
         Returns:
             str: Combined first and last name.
         """
-        return (
-            f"{self.first_name or ''} "
-            f"{self.last_name or ''}"
-        ).strip()
+        return (f"{self.first_name or ''} {self.last_name or ''}").strip()
 
     def __repr__(self) -> str:
         """
@@ -153,8 +152,5 @@ class UserProfile(Base):
             str: User profile representation.
         """
         return (
-            f"UserProfile("
-            f"user_id={self.user_id}, "
-            f"display_name='{self.display_name}'"
-            f")"
+            f"UserProfile(user_id={self.user_id}, display_name='{self.display_name}')"
         )

@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict
 # BASE
 # =========================================================
 
+
 class RolePermissionBase(BaseModel):
     """
     Shared fields for role-permission assignment.
@@ -30,6 +31,7 @@ class RolePermissionBase(BaseModel):
 # =========================================================
 # CREATE
 # =========================================================
+
 
 class RolePermissionCreate(RolePermissionBase):
     """
@@ -44,6 +46,7 @@ class RolePermissionCreate(RolePermissionBase):
 # =========================================================
 # UPDATE
 # =========================================================
+
 
 class RolePermissionUpdate(BaseModel):
     """
@@ -60,6 +63,7 @@ class RolePermissionUpdate(BaseModel):
 # =========================================================
 # INTERNAL DB MODEL
 # =========================================================
+
 
 class RolePermissionInDB(BaseModel):
     """
@@ -86,6 +90,7 @@ class RolePermissionInDB(BaseModel):
 # PUBLIC RESPONSE
 # =========================================================
 
+
 class RolePermissionOut(RolePermissionBase):
     """
     Public API representation of role-permission mapping.
@@ -107,6 +112,7 @@ class RolePermissionOut(RolePermissionBase):
 # =========================================================
 # LIGHTWEIGHT DTO (AUTH / POLICY ENGINE)
 # =========================================================
+
 
 class RolePermissionShortOut(BaseModel):
     """

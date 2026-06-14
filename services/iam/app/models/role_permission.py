@@ -5,10 +5,11 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from app.db.base import Base
 from sqlalchemy import DateTime, ForeignKey, Index, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.permission import Permission
@@ -20,6 +21,7 @@ class RolePermission(Base):
     Explicit association model mapping the many-to-many relationship
     between Roles and Permissions, storing metadata (e.g., who assigned it).
     """
+
     __tablename__ = "role_permissions"
 
     __table_args__ = (
@@ -65,7 +67,7 @@ class RolePermission(Base):
         foreign_keys=[role_id],
         viewonly=True,
     )
-    
+
     permission: Mapped["Permission"] = relationship(
         "Permission",
         foreign_keys=[permission_id],

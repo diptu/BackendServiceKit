@@ -1,13 +1,14 @@
 from typing import Annotated
 
+from fastapi import APIRouter, Depends, status
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.api.v1.dependencies import get_async_db
 from app.repositories.role import RoleRepository
 from app.repositories.user import UserRepository
 from app.schemas.user import TokenMatrixResponse, UserCreate, UserOut
 from app.services.auth import AuthService
-from fastapi import APIRouter, Depends, status
-from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(
     prefix="/auth",
@@ -31,9 +32,7 @@ def get_auth_service(
 )
 async def register(
     payload: UserCreate,
-    service: AuthService = Depends(
-        get_auth_service
-    ),
+    service: AuthService = Depends(get_auth_service),
 ):
     return await service.register(payload)
 
@@ -47,9 +46,7 @@ async def login(
         OAuth2PasswordRequestForm,
         Depends(),
     ],
-    service: AuthService = Depends(
-        get_auth_service
-    ),
+    service: AuthService = Depends(get_auth_service),
 ):
     return await service.login(
         email=form_data.username,

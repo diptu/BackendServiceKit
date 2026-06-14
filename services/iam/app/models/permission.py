@@ -14,12 +14,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
-from app.db.base import Base
-from app.models.role_permission import RolePermission
 from sqlalchemy import DateTime, Index, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base
+from app.models.role_permission import RolePermission
+
+if TYPE_CHECKING:
+    from app.models.role import Role
 
 
 class Permission(Base):
@@ -96,7 +101,7 @@ class Permission(Base):
     # -------------------------------------------------------------
     # RBAC Relationships
     # -------------------------------------------------------------
-    roles: Mapped[list["Role"]] = relationship(
+    roles: Mapped[list["Role"]] = relationship(  # noqa: F821
         "Role",
         secondary=RolePermission.__table__,
         back_populates="permissions",

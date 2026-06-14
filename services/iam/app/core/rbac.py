@@ -48,6 +48,7 @@ SYSTEM_ROLES: Final[list[RoleEnum]] = list(RoleEnum)
 # ROLE HELPERS
 # ============================================================
 
+
 def is_valid_role(role: str) -> bool:
     """
     Validate if a string is a valid system role.
