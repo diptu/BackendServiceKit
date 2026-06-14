@@ -1,9 +1,11 @@
 [project]
 name = "iam"
 version = "0.1.0"
-description = "Add your description here"
+description = "Identity and Access Management service for BackendServiceKit"
 readme = "README.md"
 requires-python = ">=3.11.9"
+
+# Production-only runtime dependencies
 dependencies = [
     "asyncpg>=0.31.0",
     "fastapi[standard]>=0.136.3",
@@ -15,15 +17,74 @@ dependencies = [
     "pyjwt>=2.13.0",
     "python-jose>=3.5.0",
     "python-multipart>=0.0.32",
-    "ruff>=0.15.17",
     "sqlalchemy>=2.0.50",
-    "types-passlib>=1.7.7.20260211",
 ]
 
+# Development & testing environments (PEP 735)
 [dependency-groups]
 dev = [
+    "aiosqlite>=0.22.1",
     "mypy>=2.1.0",
     "pytest>=9.1.0",
+    "pytest-mock>=3.15.1",
     "ruff>=0.15.17",
+    "types-passlib>=1.7.7.20260211",
     "types-setuptools>=82.0.0.20260518",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E", "W",    # pycodestyle (errors/warnings)
+    "F",         # pyflakes
+    "I",         # isort (import sorting)
+    "B",         # flake8-bugbear (common bugs)
+    "C4",        # flake8-comprehensions
+    "UP",        # pyupgrade (modern Python syntax helper)
+    "ARG",       # flake8-unused-arguments
+    "PT",        # flake8-pytest-style
+    "S",         # flake8-bandit (Security testing - critical for an IAM service!)
+    "ASYNC",     # flake8-async (Validates structured concurrency in FastAPI/asyncpg)
+    "N",         # pep8-naming (Enforces strict variable/class naming conventions)
+    "RUF",       # Ruff-specific rules (catches unique anti-patterns)
+]
+ignore = [
+    "E501",      # Let the formatter manage line wrapping automatically
+    "S101",      # Allows assertions in tests
+]
+
+# CORRECT PLACEMENT: Must be nested inside the plugin's own configuration block
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.params.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Security"
+]
+
+[tool.ruff.lint.per-file-ignores]
+
+[tool.pyright]
+include = ["app"]
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
+typeCheckingMode = "standard" # Elevate to "strict" for mission-critical services
+
+"tests/**/*.py" = ["S105", "S106", "S107"]
+
+
+[tool.pytest.ini_options]
+# ... your existing pytest settings ...
+filterwarnings = [
+    # Ignore the legacy passlib 'crypt' deprecation warning
+    "ignore:'crypt' is deprecated and slated for removal in Python 3.13:DeprecationWarning",
+
+    # Ignore SQLAlchemy overlapping relationship warnings
+    "ignore:.*will copy column.*conflicts with relationship:sqlalchemy.exc.SAWarning"
 ]

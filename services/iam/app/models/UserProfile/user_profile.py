@@ -29,7 +29,7 @@ class UserProfile(Base):
     __tablename__ = "user_profiles"
 
     # -------------------------------------------------------------
-    # Primary Identity / 1–1 mapping with User
+    # Primary Identity / one to one mapping with User
     # -------------------------------------------------------------
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -57,12 +57,12 @@ class UserProfile(Base):
     # -------------------------------------------------------------
     # RELATIONSHIPS
     # -------------------------------------------------------------
-    user: Mapped["User"] = relationship(
+    user: Mapped[User] = relationship(
         "User",
         back_populates="profile",
     )
 
-    social_links: Mapped[list["UserSocialLink"]] = relationship(
+    social_links: Mapped[list[UserSocialLink]] = relationship(
         "UserSocialLink",
         back_populates="profile",
         cascade="all, delete-orphan",

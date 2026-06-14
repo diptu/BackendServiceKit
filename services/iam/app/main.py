@@ -17,7 +17,7 @@ from app.models import (  # Noqa: F401
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     # DDL Construction Logic Execution at system boot time
     async with get_engine().begin() as conn:
         # Automatically detects missing tables and builds them on-the-fly

@@ -11,13 +11,13 @@ from app.models.UserProfile.user_social_link import (
 )  # <-- ENSURE THIS ROOT IMPORT MATCHES PATH EXACTLY
 
 __all__ = [
-    "Base",
-    "User",
-    "Role",
-    "Permission",
-    "UserRole",
-    "RolePermission",
-    "UserProfile",
-    "UserSocialLink",
     "ACTIVE_REFRESH_TOKENS",
+    "Base",
+    "Permission",
+    "Role",
+    "RolePermission",
+    "User",
+    "UserProfile",
+    "UserRole",
+    "UserSocialLink",
 ]

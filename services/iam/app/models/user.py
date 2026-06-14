@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Boolean, DateTime, Index, String, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 # Stateful Token Tracking Matrix (Simulated Cache/Store)
 # -------------------------------------------------------------
 # Maps refresh_jti -> token state metadata
-ACTIVE_REFRESH_TOKENS: Dict[str, Dict[str, Any]] = {}
+ACTIVE_REFRESH_TOKENS: dict[str, dict[str, Any]] = {}
 
 
 class User(Base):
@@ -86,7 +86,7 @@ class User(Base):
     # -------------------------
     # RBAC RELATIONSHIP
     # -------------------------
-    roles: Mapped[list["Role"]] = relationship(  # noqa: F821
+    roles: Mapped[list[Role]] = relationship(
         "Role",
         secondary=UserRole.__table__,
         back_populates="users",
@@ -98,7 +98,7 @@ class User(Base):
     # -------------------------
     # PROFILE RELATIONSHIP (NEW)
     # -------------------------
-    profile: Mapped["UserProfile"] = relationship(  # noqa: F821
+    profile: Mapped[UserProfile] = relationship(
         "UserProfile",
         back_populates="user",
         uselist=False,

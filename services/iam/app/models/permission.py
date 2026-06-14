@@ -101,7 +101,7 @@ class Permission(Base):
     # -------------------------------------------------------------
     # RBAC Relationships
     # -------------------------------------------------------------
-    roles: Mapped[list["Role"]] = relationship(  # noqa: F821
+    roles: Mapped[list[Role]] = relationship(
         "Role",
         secondary=RolePermission.__table__,
         back_populates="permissions",

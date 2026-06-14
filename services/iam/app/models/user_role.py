@@ -107,18 +107,18 @@ class UserRole(Base):
         nullable=False,
     )
 
-    user: Mapped["User"] = relationship(  # noqa: F821
+    user: Mapped[User] = relationship(
         "User",
         foreign_keys=[user_id],
         lazy="selectin",
     )
 
-    role: Mapped["Role"] = relationship(  # noqa: F821
+    role: Mapped[Role] = relationship(
         "Role",
         lazy="selectin",
     )
 
-    assigned_by_user: Mapped["User | None"] = relationship(  # noqa: F821
+    assigned_by_user: Mapped[User | None] = relationship(
         "User",
         foreign_keys=[assigned_by],
         lazy="selectin",
