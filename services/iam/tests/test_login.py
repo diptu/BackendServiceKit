@@ -1,73 +1,118 @@
-# import pytest
-# from app.main import app as app_instance
+import pytest
+from fastapi import status
 
-# # ==============================================================================
-# # FIXTURES & CONFIGURATION
-# # ==============================================================================
+from app.main import app as app_instance
 
-# @pytest.fixture(scope="session")
-# def app():
-#     """Provides the application instance."""
-#     return app_instance
+# ==============================================================================
+# FIXTURES & CONFIGURATION
+# ==============================================================================
 
 
-# @pytest.fixture
-# def db_session(mocker):
-#     """Provides a mocked or isolated DB session wrapper to avoid global state."""
-#     # If using FastAPI dependency overrides, mock the engine/session dependency here
-#     mock_session = mocker.MagicMock()
-#     return mock_session
+@pytest.fixture(scope="session")
+def app():
+    """Provides the application instance."""
+    return app_instance
+
+
+@pytest.fixture
+def db_session(mocker):
+    """Provides a mocked or isolated DB session wrapper to avoid global state."""
+    mock_session = mocker.MagicMock()
+    return mock_session
 
 
 # ==============================================================================
 # LOGIN ENDPOINT TESTS
 # ==============================================================================
 
-# class TestLogin:
 
-#     @pytest.fixture
-#     def seeded_user(self, app, mocker):
-#         """Utility fixture to mock or inject a baseline user for auth scenarios."""
-#         # Instead of risking a dirty global DB connection, we can mock the fetch layer
-#         mock_user = mocker.MagicMock()
-#         mock_user.email = "auth_user@example.com"
-#         mock_user.password_hash = "hashed_val"
-#         mock_user.username = "auth"
+@pytest.mark.anyio
+class TestLogin:
+    @pytest.fixture
+    def seeded_user(self, mocker):
+        """Utility fixture to mock the AuthService return value matching TokenMatrixResponse."""
+        mock_response_data = {
+            "access_token": "mocked_access_jwt_token_string",
+            "refresh_token": "mocked_refresh_jwt_token_string",
+            "token_type": "Bearer",
+            "user": {
+                "id": "00000000-0000-0000-0000-000000000000",
+                "email": "auth_user@example.com",
+                "is_active": True,
+                "is_verified": True,
+                "is_superuser": False,
+                "last_login_at": "2026-06-14T23:21:00Z",
+                "created_at": "2026-06-14T23:21:00Z",
+                "updated_at": "2026-06-14T23:21:00Z",
+                "roles": [],
+                "profile": {"full_name": "Authenticated User"},
+            },
+        }
 
-#         mocker.patch("app.services.UserService.get_user_by_email", return_value=mock_user)
-#         return mock_user
+        # Patch the actual login service execution point to return our valid response payload structure
+        mocker.patch(
+            "app.services.auth.AuthService.login", return_value=mock_response_data
+        )
+        return mock_response_data
 
-#     def test_login_success(self, client, seeded_user, mocker):
-#         """Should return 200 and a valid JWT token upon correct credentials."""
-#         # Arrange
-#         mocker.patch("app.utils.security.verify_password", return_value=True)
-#         payload = {"email": "auth_user@example.com", "password": "CorrectPassword123"}
+    async def test_login_success(self, client, seeded_user, mocker):
+        """Should return 200 and a valid JWT token upon correct credentials."""
+        # Arrange
+        mocker.patch("app.core.security.verify_password", return_value=True)
+        payload = {
+            "username": seeded_user["user"]["email"],
+            "password": "CorrectPassword123",
+        }
 
-#         # Act
-#         response = client.post("/api/v1/login", json=payload)
+        # Act
+        response = await client.post("/api/v1/auth/login", data=payload)
 
-#         # Assert
-#         assert response.status_code == 200
-#         assert "access_token" in response.json
-#         assert response.json["token_type"] == "Bearer"
+        # Assert
+        assert response.status_code == status.HTTP_200_OK
 
-#     @pytest.mark.parametrize(
-#         "email, password, expected_status",
-#         [
-#             ("auth_user@example.com", "WrongPassword!", 401),  # Wrong pass
-#             ("nonexistent@example.com", "SomePassword!", 401),  # Wrong user
-#             ("", "", 400),                                      # Malformed payload
-#         ],
-#     )
-#     def test_login_invalid_credentials(
-#         self, client, mocker, email, password, expected_status
-#     ):
-#         """Verifies authentication failures catch standard vectors without leaking system states."""
-#         mocker.patch("app.utils.security.verify_password", return_value=False)
-#         payload = {"email": email, "password": password}
+        resp_data = response.json()
+        assert resp_data["access_token"] == seeded_user["access_token"]
+        assert resp_data["token_type"] == seeded_user["token_type"]
+        assert resp_data["user"]["email"] == seeded_user["user"]["email"]
 
-#         response = client.post("/api/v1/login", json=payload)
+    @pytest.mark.parametrize(
+        ("username", "password", "expected_status"),
+        [
+            ("auth_user@example.com", "WrongPassword!", status.HTTP_401_UNAUTHORIZED),
+            ("nonexistent@example.com", "SomePassword!", status.HTTP_401_UNAUTHORIZED),
+            ("", "", status.HTTP_422_UNPROCESSABLE_ENTITY),
+        ],
+    )
+    async def test_login_invalid_credentials(
+        self, client, mocker, username, password, expected_status
+    ):
+        """Verifies authentication failures catch standard vectors without leaking system states."""
+        mocker.patch("app.core.security.verify_password", return_value=False)
+        payload = {"username": username, "password": password}
 
-#         assert response.status_code == expected_status
-#         if expected_status == 401:
-#             assert "Invalid email or password" in response.json["error"]
+        # Act
+        response = await client.post("/api/v1/auth/login", data=payload)
+
+        # Assert
+        assert response.status_code == expected_status
+
+        if expected_status == status.HTTP_401_UNAUTHORIZED:
+            resp_data = response.json()
+            assert "Invalid credentials." in resp_data["detail"]
+
+    async def test_login_route_not_found(self, client):
+        """Verifies hitting an invalid or missing route target gracefully falls back to a 404 Status."""
+        payload = {
+            "username": "auth_user@example.com",
+            "password": "CorrectPassword123",
+        }
+
+        # Act
+        response = await client.post("/api/v1/auth/invalid-endpoint-slug", data=payload)
+
+        # Assert
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        resp_data = response.json()
+        assert "detail" in resp_data
+        assert resp_data["detail"] == "Not Found"
