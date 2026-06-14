@@ -26,7 +26,6 @@ async def test_db():
     Setup runs once before any tests start. Teardown runs strictly
     after all tests in the session are completed.
     """
-    # Setup Phase
     engine = create_async_engine(
         TEST_DATABASE_URL, connect_args={"check_same_thread": False}
     )
@@ -35,9 +34,9 @@ async def test_db():
     )
 
     async with engine.begin() as conn:
+        # Now SQLAlchemy knows about the `users` table because User was imported above
         await conn.run_sync(Base.metadata.create_all)
 
-    # Hand off control to the test runner
     yield testing_session_local
 
     # Teardown Phase (Executes only after the test session is completed)
