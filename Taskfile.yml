@@ -170,10 +170,16 @@ tasks:
 # =========================
 
   test:
-    desc: Run tests across the entire monorepo
+    desc: Run tests isolated within each microservice environment context
     cmds:
-      # Runs pytest from the root folder to discover all tests everywhere (shared, services, etc.)
-      - uv run pytest
+      - |
+        for s in {{.SERVICES}}; do
+          echo "🧪 Running tests for services/$s..."
+          (
+            cd services/$s && \
+            uv run pytest
+          ) || [ $? -eq 5 ] || exit 1
+        done
 
 
   test:one:
@@ -220,13 +226,6 @@ tasks:
           )
         done
 
-  quality:
-    desc: "Code quality: Format, lint, and typecheck all services in a single pass"
-    cmds:
-      - task format
-      - task lint
-      - task typecheck
-      - task test
 
 # =========================
 # DOCKER SINGLE SERVICE OPS
@@ -269,3 +268,16 @@ tasks:
       - docker system prune -f
       - find . -type d -name "__pycache__" -exec rm -rf {} +
       - find . -name "*.pyc" -delete
+
+
+  quality:
+    desc: "Code quality: Format, lint, and typecheck all services in a single pass"
+    cmds:
+      - task: format
+        vars: { SERVICE: "{{.SERVICE}}" }
+      - task: lint
+        vars: { SERVICE: "{{.SERVICE}}" }
+      - task: typecheck
+        vars: { SERVICE: "{{.SERVICE}}" }
+      - task: test
+        vars: { SERVICE: "{{.SERVICE}}" }
