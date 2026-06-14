@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,7 +34,11 @@ async def register(
     payload: UserCreate,
     service: AuthService = Depends(get_auth_service),
 ):
-    return await service.register(payload)
+    try:
+        return await service.register(payload)
+    except ValueError as e:
+        # Catch internal domain logic errors and map them to HTTP responses
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
 
 @router.post(

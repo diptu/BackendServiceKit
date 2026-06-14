@@ -62,13 +62,13 @@ class RolePermission(Base):
     )
 
     # Parents lookup (using string names to break cyclic compilation)
-    role: Mapped["Role"] = relationship(
+    role: Mapped[Role] = relationship(
         "Role",
         foreign_keys=[role_id],
         viewonly=True,
     )
 
-    permission: Mapped["Permission"] = relationship(
+    permission: Mapped[Permission] = relationship(
         "Permission",
         foreign_keys=[permission_id],
         viewonly=True,

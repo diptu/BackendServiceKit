@@ -4,9 +4,9 @@
 - [x] Create IAM service repository
 - [x] Configure project structure
 - [x] Setup environment variables
-- [ ] Configure logging
+- [] Configure logging
 - [ ] Setup database and migrations
-- [ ] Configure testing and CI/CD
+- [x] Configure testing and CI/CD
 
 ## 2. Authentication
 ### Registration

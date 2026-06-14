@@ -33,7 +33,7 @@ class AuthService:
 
         if existing_user:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_409_CONFLICT,
                 detail="Email already registered.",
             )
 
@@ -69,7 +69,6 @@ class AuthService:
         email: str,
         password: str,
     ) -> TokenMatrixResponse:
-
         email = email.strip().lower()
 
         user = await self.user_repository.get_by_email(email)
@@ -151,6 +150,6 @@ class AuthService:
         return TokenMatrixResponse(
             access_token=access_token,
             refresh_token=refresh_token,
-            token_type="bearer",
+            token_type="bearer",  # noqa: S106
             user=UserOut.model_validate(user),
         )

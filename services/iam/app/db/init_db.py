@@ -12,5 +12,5 @@ def import_all_models() -> None:
     metadata/table creation.
     """
 
-    import app.models.user  # noqa: F401
+    import app.models.user
     import app.models.UserProfile  # noqa: F401

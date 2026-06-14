@@ -1,8 +1,8 @@
-from enum import Enum
+from enum import StrEnum
 from typing import Final
 
 
-class RoleEnum(str, Enum):
+class RoleEnum(StrEnum):
     """
     System RBAC roles (authoritative source of truth).
 

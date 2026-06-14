@@ -1,3 +1,6 @@
+# tests/conftest.py
+from uuid import uuid4
+
 import pytest
 from anyio import Path
 from httpx import ASGITransport, AsyncClient
@@ -8,7 +11,7 @@ from app.db.session import get_db
 from app.main import app as app_instance
 
 # Generate a distinct test database file name for this session execution
-TEST_DB_FILE = "test_db.sqlite"
+TEST_DB_FILE = f"test_db_{uuid4().hex[:8]}.sqlite"
 TEST_DATABASE_URL = f"sqlite+aiosqlite:///{TEST_DB_FILE}"
 
 
