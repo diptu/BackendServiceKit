@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app as app_instance
+from app.models.user import User  # noqa
 
 # Generate a distinct test database file name for this session execution
 TEST_DB_FILE = "test_db.sqlite"
@@ -43,7 +44,7 @@ async def test_db():
     await engine.dispose()
     test_db_path = Path(TEST_DB_FILE)
 
-    if test_db_path.exists():
+    if await test_db_path.exists():
         try:
             await test_db_path.unlink()
         except PermissionError:
