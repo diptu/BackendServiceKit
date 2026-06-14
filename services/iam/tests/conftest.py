@@ -1,14 +1,15 @@
+# tests/conftest.py
 import pytest
 from anyio import Path
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app as app_instance
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
+                                    create_async_engine)
 
 # Generate a distinct test database file name for this session execution
-TEST_DB_FILE = "test_db.sqlite"
+TEST_DB_FILE = f"test_db.sqlite"
 TEST_DATABASE_URL = f"sqlite+aiosqlite:///{TEST_DB_FILE}"
 
 
