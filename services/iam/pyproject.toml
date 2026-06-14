@@ -23,5 +23,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "mypy>=2.1.0",
+    "pytest>=9.1.0",
+    "ruff>=0.15.17",
     "types-setuptools>=82.0.0.20260518",
 ]
