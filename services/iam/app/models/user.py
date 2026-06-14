@@ -8,14 +8,20 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Dict
+from typing import TYPE_CHECKING, Any, Dict
 
-from app.db.base import Base
-# Explicitly import the association model class to hook into its table object
-from app.models.user_role import UserRole
 from sqlalchemy import Boolean, DateTime, Index, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base
+
+# Explicitly import the association model class to hook into its table object
+from app.models.user_role import UserRole
+
+if TYPE_CHECKING:
+    from app.models.role import Role
+    from app.models.UserProfile.user_profile import UserProfile
 
 # -------------------------------------------------------------
 # Stateful Token Tracking Matrix (Simulated Cache/Store)
@@ -27,9 +33,7 @@ ACTIVE_REFRESH_TOKENS: Dict[str, Dict[str, Any]] = {}
 class User(Base):
     __tablename__ = "users"
 
-    __table_args__ = (
-        Index("idx_users_email", "email"),
-    )
+    __table_args__ = (Index("idx_users_email", "email"),)
 
     # -------------------------
     # Identity (IAM CORE ONLY)
@@ -82,7 +86,7 @@ class User(Base):
     # -------------------------
     # RBAC RELATIONSHIP
     # -------------------------
-    roles: Mapped[list["Role"]] = relationship(
+    roles: Mapped[list["Role"]] = relationship(  # noqa: F821
         "Role",
         secondary=UserRole.__table__,
         back_populates="users",
@@ -94,7 +98,7 @@ class User(Base):
     # -------------------------
     # PROFILE RELATIONSHIP (NEW)
     # -------------------------
-    profile: Mapped["UserProfile"] = relationship(
+    profile: Mapped["UserProfile"] = relationship(  # noqa: F821
         "UserProfile",
         back_populates="user",
         uselist=False,
@@ -105,10 +109,10 @@ class User(Base):
         return f"User(id={self.id}, email={self.email})"
 
     @property
-    def full_name(self) -> str:
+    def full_name(self) -> str | None:
         """
         Optional fallback (prefer profile.full_name later).
         """
         if self.profile:
             return self.profile.full_name
-        return ""
+        return None

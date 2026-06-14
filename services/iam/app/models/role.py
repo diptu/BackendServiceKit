@@ -16,14 +16,19 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import Boolean, DateTime, Index, String, func
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.rbac import RoleEnum
 from app.db.base import Base
 from app.models.role_permission import RolePermission
-from app.models.user_role import UserRole
-from sqlalchemy import Boolean, DateTime, Index, String, func
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+if TYPE_CHECKING:
+    from app.models.permission import Permission
+    from app.models.user import User
 
 
 class Role(Base):
@@ -84,11 +89,6 @@ class Role(Base):
         nullable=False,
     )
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         default=True,
@@ -114,7 +114,7 @@ class Role(Base):
     # -------------------------
     # RBAC RELATIONSHIPS
     # -------------------------
-    users: Mapped[list["User"]] = relationship(
+    users: Mapped[list["User"]] = relationship(  # noqa: F821
         "User",
         secondary="user_roles",  # Can use string or variable if registered
         back_populates="roles",
@@ -122,7 +122,7 @@ class Role(Base):
         lazy="selectin",
     )
 
-    permissions: Mapped[list["Permission"]] = relationship(
+    permissions: Mapped[list["Permission"]] = relationship(  # noqa: F821
         "Permission",
         secondary=RolePermission.__table__,
         back_populates="roles",
@@ -130,7 +130,6 @@ class Role(Base):
         foreign_keys=[RolePermission.role_id, RolePermission.permission_id],
         lazy="selectin",
     )
-
 
     # =====================================================
     # HELPER PROPERTIES

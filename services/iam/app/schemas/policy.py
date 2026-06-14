@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # BASE
 # =========================================================
 
+
 class PolicyBase(BaseModel):
     """
     Shared policy fields.
@@ -44,6 +45,7 @@ class PolicyBase(BaseModel):
 # CREATE
 # =========================================================
 
+
 class PolicyCreate(PolicyBase):
     """
     Schema for creating a policy.
@@ -55,6 +57,7 @@ class PolicyCreate(PolicyBase):
 # =========================================================
 # UPDATE
 # =========================================================
+
 
 class PolicyUpdate(BaseModel):
     """
@@ -81,6 +84,7 @@ class PolicyUpdate(BaseModel):
 # =========================================================
 # INTERNAL (DB LAYER)
 # =========================================================
+
 
 class PolicyInDB(BaseModel):
     """
@@ -113,6 +117,7 @@ class PolicyInDB(BaseModel):
 # PUBLIC RESPONSE
 # =========================================================
 
+
 class PolicyOut(PolicyBase):
     """
     Public API response schema.
@@ -138,6 +143,7 @@ class PolicyOut(PolicyBase):
 # =========================================================
 # POLICY EVALUATION INPUT (VERY IMPORTANT)
 # =========================================================
+
 
 class PolicyContext(BaseModel):
     """
@@ -165,6 +171,7 @@ class PolicyContext(BaseModel):
 # =========================================================
 # POLICY DECISION OUTPUT
 # =========================================================
+
 
 class PolicyDecision(BaseModel):
     """

@@ -8,15 +8,16 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from app.db.base import Base
 from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.db.base import Base
+
 if TYPE_CHECKING:
     # Use standard type checking guards for all relational targets to keep imports linear
     from app.models.user import User
-    from app.models.user_social_link import UserSocialLink
+    from app.models.UserProfile.user_social_link import UserSocialLink
 
 
 class UserProfile(Base):
@@ -24,6 +25,7 @@ class UserProfile(Base):
     Extended profile metadata bound 1-to-1 with Core Identity Users.
     Uses a shared primary key strategy to guarantee relational constraint symmetry.
     """
+
     __tablename__ = "user_profiles"
 
     # -------------------------------------------------------------

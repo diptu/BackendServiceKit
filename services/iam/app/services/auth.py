@@ -2,16 +2,16 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+from fastapi import HTTPException, status
+
 from app.core.config import settings
 from app.core.rbac import DEFAULT_ROLE
-from app.core.security import (create_access_token, hash_password,
-                               verify_password)
+from app.core.security import create_access_token, hash_password, verify_password
 from app.models.role import Role
 from app.models.user import ACTIVE_REFRESH_TOKENS, User
 from app.repositories.role import RoleRepository
 from app.repositories.user import UserRepository
 from app.schemas.user import TokenMatrixResponse, UserCreate, UserOut
-from fastapi import HTTPException, status
 
 
 class AuthService:
@@ -44,7 +44,7 @@ class AuthService:
             default_role = Role(
                 slug=DEFAULT_ROLE.value,
                 name=DEFAULT_ROLE.value.replace("_", " ").title(),
-                is_system=True
+                is_system=True,
             )
 
         if not default_role:
@@ -63,8 +63,7 @@ class AuthService:
         )
 
         return await self.user_repository.create(user)
-    
-   
+
     async def login(
         self,
         email: str,
@@ -103,9 +102,7 @@ class AuthService:
         permissions: list[str] = []
 
         for role in user.roles:
-            permissions.extend(
-                p.name for p in role.permissions
-            )
+            permissions.extend(p.name for p in role.permissions)
 
         permissions = list(set(permissions))
 
@@ -133,33 +130,22 @@ class AuthService:
 
         access_token = create_access_token(
             data=access_claims,
-            expires_delta=timedelta(
-                minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-            ),
+            expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
         )
 
         refresh_token = create_access_token(
             data=refresh_claims,
-            expires_delta=timedelta(
-                days=settings.REFRESH_TOKEN_EXPIRE_DAYS
-            ),
+            expires_delta=timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
         )
 
         user.last_login_at = now
 
-        await self.user_repository.update_last_login(
-            user
-        )
+        await self.user_repository.update_last_login(user)
 
         ACTIVE_REFRESH_TOKENS[refresh_jti] = {
             "user_id": str(user.id),
             "revoked": False,
-            "expires_at": (
-                now
-                + timedelta(
-                    days=settings.REFRESH_TOKEN_EXPIRE_DAYS
-                )
-            ),
+            "expires_at": (now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)),
         }
 
         return TokenMatrixResponse(
@@ -168,5 +154,3 @@ class AuthService:
             token_type="bearer",
             user=UserOut.model_validate(user),
         )
-    
-   

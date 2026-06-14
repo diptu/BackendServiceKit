@@ -19,10 +19,12 @@ from pydantic import BaseModel, ConfigDict, Field
 # BASE
 # =========================================================
 
+
 class RoleBase(BaseModel):
     """
     Shared role fields.
     """
+
     name: str = Field(..., min_length=1, max_length=255)
     slug: str = Field(..., min_length=1, max_length=100)
     description: str | None = Field(default=None, max_length=500)
@@ -32,16 +34,19 @@ class RoleBase(BaseModel):
 # CREATE
 # =========================================================
 
+
 class RoleCreate(RoleBase):
     """
     Schema for creating a role.
     """
+
     is_system: bool = Field(default=False)
 
 
 # =========================================================
 # UPDATE
 # =========================================================
+
 
 class RoleUpdate(BaseModel):
     """
@@ -60,6 +65,7 @@ class RoleUpdate(BaseModel):
 # =========================================================
 # INTERNAL (DB LAYER)
 # =========================================================
+
 
 class RoleInDB(BaseModel):
     """
@@ -84,12 +90,14 @@ class RoleInDB(BaseModel):
 # MINIMAL RELATED DTOs (for RBAC graph exposure)
 # =========================================================
 
+
 class PermissionOut(BaseModel):
     """
     Lightweight permission representation.
 
     (kept minimal to avoid over-fetching in role APIs)
     """
+
     id: uuid.UUID
     name: str
     slug: str
@@ -101,6 +109,7 @@ class UserOutMinimal(BaseModel):
     """
     Minimal user representation inside role responses.
     """
+
     id: uuid.UUID
     email: str
 
@@ -110,6 +119,7 @@ class UserOutMinimal(BaseModel):
 # =========================================================
 # PUBLIC RESPONSE
 # =========================================================
+
 
 class RoleOut(RoleBase):
     """
@@ -134,6 +144,7 @@ class RoleOut(RoleBase):
 # =========================================================
 # LIGHTWEIGHT RESPONSE (for dropdowns / auth context)
 # =========================================================
+
 
 class RoleShortOut(BaseModel):
     """

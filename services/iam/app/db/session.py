@@ -2,10 +2,15 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 
-from app.core.config import settings
-from sqlalchemy.ext.asyncio import (AsyncEngine, AsyncSession,
-                                    async_sessionmaker, create_async_engine)
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.pool import NullPool
+
+from app.core.config import settings
 
 # Explicitly type hint global trackers so Mypy understands their state transitions
 _engine: AsyncEngine | None = None

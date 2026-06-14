@@ -8,12 +8,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Index, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.role import Role
+    from app.models.user import User
 
 
 class UserRole(Base):
@@ -102,18 +107,18 @@ class UserRole(Base):
         nullable=False,
     )
 
-    user: Mapped["User"] = relationship(
+    user: Mapped["User"] = relationship(  # noqa: F821
         "User",
         foreign_keys=[user_id],
         lazy="selectin",
     )
 
-    role: Mapped["Role"] = relationship(
+    role: Mapped["Role"] = relationship(  # noqa: F821
         "Role",
         lazy="selectin",
     )
 
-    assigned_by_user: Mapped["User | None"] = relationship(
+    assigned_by_user: Mapped["User | None"] = relationship(  # noqa: F821
         "User",
         foreign_keys=[assigned_by],
         lazy="selectin",
@@ -126,10 +131,4 @@ class UserRole(Base):
         Returns:
             str: Assignment representation.
         """
-        return (
-            f"UserRole("
-            f"id={self.id}, "
-            f"user_id={self.user_id}, "
-            f"role_id={self.role_id}"
-            f")"
-        )
+        return f"UserRole(id={self.id}, user_id={self.user_id}, role_id={self.role_id})"

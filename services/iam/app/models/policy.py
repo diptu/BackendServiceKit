@@ -1,4 +1,4 @@
-#models/policy.py
+# models/policy.py
 """
 Policy model for IAM system.
 
@@ -18,10 +18,11 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from app.db.base import Base
 from sqlalchemy import DateTime, Index, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.base import Base
 
 
 class Policy(Base):

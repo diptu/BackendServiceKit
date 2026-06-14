@@ -170,14 +170,10 @@ tasks:
 # =========================
 
   test:
-    desc: Run tests for all services
+    desc: Run tests across the entire monorepo
     cmds:
-      - |
-        set -e
-        for s in {{.SERVICES}}; do
-          echo "🧪 Testing $s"
-          (cd services/$s && uv run pytest)
-        done
+      # Runs pytest from the root folder to discover all tests everywhere (shared, services, etc.)
+      - uv run pytest
 
 
   test:one:
@@ -200,15 +196,37 @@ tasks:
           (cd services/$s && uv run ruff check .)
         done
 
+  typecheck:
+    desc: Run strict type checking with mypy across all services
+    cmds:
+      - |
+        set -e
+        for s in {{.SERVICES}}; do
+          echo "🧪 Type checking services/$s..."
+          (cd services/$s && uv run mypy --explicit-package-bases .)
+        done
 
   format:
-    desc: Format all services
+    desc: Format, sort imports, and clean up unused code across all services
     cmds:
       - |
         for s in {{.SERVICES}}; do
-          (cd services/$s && uv run ruff format .)
+          echo "✨ Linting and formatting services/$s..."
+          (
+            cd services/$s && \
+            uv run ruff check --select I --fix . && \
+            uv run ruff check --fix . && \
+            uv run ruff format .
+          )
         done
 
+  quality:
+    desc: "Code quality: Format, lint, and typecheck all services in a single pass"
+    cmds:
+      - task format
+      - task lint
+      - task typecheck
+      - task test
 
 # =========================
 # DOCKER SINGLE SERVICE OPS

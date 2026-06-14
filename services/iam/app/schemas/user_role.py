@@ -12,11 +12,12 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 # =========================================================
 # BASE
 # =========================================================
+
 
 class UserRoleBase(BaseModel):
     """
@@ -31,6 +32,7 @@ class UserRoleBase(BaseModel):
 # CREATE (role assignment)
 # =========================================================
 
+
 class UserRoleCreate(UserRoleBase):
     """
     Assign a role to a user.
@@ -44,6 +46,7 @@ class UserRoleCreate(UserRoleBase):
 # =========================================================
 # UPDATE (rare but useful for expiry extension)
 # =========================================================
+
 
 class UserRoleUpdate(BaseModel):
     """
@@ -60,6 +63,7 @@ class UserRoleUpdate(BaseModel):
 # =========================================================
 # INTERNAL DB MODEL
 # =========================================================
+
 
 class UserRoleInDB(BaseModel):
     """
@@ -86,6 +90,7 @@ class UserRoleInDB(BaseModel):
 # PUBLIC RESPONSE
 # =========================================================
 
+
 class UserRoleOut(UserRoleBase):
     """
     Public API representation of role assignment.
@@ -107,6 +112,7 @@ class UserRoleOut(UserRoleBase):
 # =========================================================
 # LIGHTWEIGHT DTO (AUTH / POLICY ENGINE)
 # =========================================================
+
 
 class UserRoleShortOut(BaseModel):
     """

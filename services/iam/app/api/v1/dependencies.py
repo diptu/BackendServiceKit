@@ -1,9 +1,9 @@
 from collections.abc import AsyncGenerator
 
-from app.core.config import settings
-from app.db.session import get_db as _get_db
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.session import get_db as _get_db
 
 # Standard OAuth2 scheme mapping for automated schema documentation
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
