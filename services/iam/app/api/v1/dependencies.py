@@ -10,6 +10,8 @@ from app.db.session import get_db as _get_db
 from app.repositories.user import UserRepository
 from app.schemas.user import UserOut
 
+_ADMIN_ROLES = {"super_admin", "admin"}
+
 
 async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
     """
@@ -33,3 +35,16 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return UserOut.model_validate(user)
+
+
+async def require_admin(
+    current_user: Annotated[UserOut, Depends(get_current_user)],
+) -> UserOut:
+    """Dependency that allows only superusers and admin-role users through."""
+    has_admin_role = any(r.name in _ADMIN_ROLES for r in current_user.roles)
+    if not current_user.is_superuser and not has_admin_role:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required.",
+        )
+    return current_user

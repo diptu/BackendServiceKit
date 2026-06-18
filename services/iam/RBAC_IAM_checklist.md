@@ -4,8 +4,8 @@
 - [x] Create IAM service repository
 - [x] Configure project structure
 - [x] Setup environment variables
-- [] Configure logging
-- [ ] Setup database and migrations
+- [x] Configure logging
+- [x] Setup database and migrations
 - [x] Configure testing and CI/CD
 
 ## 2. Authentication
@@ -18,25 +18,25 @@
 ### Login
 - [x] User authentication
 - [x] Access token generation
-- [ ] Refresh token generation
-- [ ] Login audit logging
+- [x] Refresh token generation
+- [x] Login audit logging
 
 ### Password Management
-- [ ] Change password
-- [ ] Forgot password
-- [ ] Password reset flow
+- [x] Change password
+- [x] Forgot password
+- [x] Password reset flow
 
 ### Federated Identity (OAuth2 / OIDC)
-- [ ] Configure OAuth2 state/nonce mechanism for CSRF mitigation
-- [ ] Implement Google login redirection endpoint
-- [ ] Implement Google OAuth2 backend callback handler
-- [ ] Extract claims from verified ID tokens and map to local RBAC user profiles
+- [x] Configure OAuth2 state/nonce mechanism for CSRF mitigation
+- [x] Implement Google login redirection endpoint
+- [x] Implement Google OAuth2 backend callback handler
+- [x] Extract claims from verified ID tokens and map to local RBAC user profiles
 
 ## 3. User Management
-- [ ] User CRUD
-- [ ] User profile management
-- [ ] User activation/deactivation
-- [ ] User search and filtering
+- [x] User CRUD
+- [x] User profile management
+- [x] User activation/deactivation
+- [x] User search and filtering
 
 ## 4. Organization Management
 - [ ] Create organization

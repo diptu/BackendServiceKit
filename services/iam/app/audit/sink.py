@@ -1,23 +1,21 @@
-import json
-import logging
+import structlog
 
 from app.audit.events import AuditEvent
 
-_logger = logging.getLogger("iam.audit")
+_log = structlog.get_logger("iam.audit")
 
 
 class StdoutSink:
-    """Emits structured JSON audit records to the iam.audit logger stream."""
+    """Emits structured JSON audit records via structlog."""
 
     def emit(self, event: AuditEvent) -> None:
-        record = {
-            "timestamp": event.timestamp.isoformat(),
-            "event": str(event.event_type),
-            "user_id": event.user_id,
-            "email": event.email,
-            "ip_address": event.ip_address,
-            "user_agent": event.user_agent,
-            "jti": event.jti,
-            "detail": event.detail,
-        }
-        _logger.info(json.dumps(record))
+        _log.info(
+            str(event.event_type),
+            timestamp=event.timestamp.isoformat(),
+            user_id=event.user_id,
+            email=event.email,
+            ip_address=event.ip_address,
+            user_agent=event.user_agent,
+            jti=event.jti,
+            detail=event.detail,
+        )

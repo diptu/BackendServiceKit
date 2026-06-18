@@ -1,11 +1,13 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.role import Role
 from app.models.user import User
+from app.models.user_role import UserRole
 
 _EAGER = (selectinload(User.profile), selectinload(User.roles))
 
@@ -67,6 +69,47 @@ class UserRepository:
         user.last_login_at = now
         user.updated_at = now
         return await self.save(user)
+
+    async def list_users(
+        self,
+        *,
+        q: str | None = None,
+        role: str | None = None,
+        is_active: bool | None = None,
+        is_verified: bool | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[User], int]:
+        """Return a paginated, filtered slice of users and the total count."""
+        base = select(User).options(*_EAGER)
+
+        if q:
+            from app.models.UserProfile.user_profile import UserProfile
+
+            base = base.outerjoin(UserProfile, UserProfile.user_id == User.id).where(
+                or_(
+                    User.email.ilike(f"%{q}%"),
+                    UserProfile.full_name.ilike(f"%{q}%"),
+                )
+            )
+        if role is not None:
+            base = base.join(UserRole, UserRole.user_id == User.id).join(
+                Role, Role.id == UserRole.role_id
+            ).where(Role.slug == role)
+        if is_active is not None:
+            base = base.where(User.is_active == is_active)
+        if is_verified is not None:
+            base = base.where(User.is_verified == is_verified)
+
+        count_stmt = select(func.count()).select_from(base.subquery())
+        total: int = (await self.session.execute(count_stmt)).scalar_one()
+
+        offset = (page - 1) * page_size
+        rows = (
+            await self.session.execute(base.offset(offset).limit(page_size))
+        ).scalars().all()
+
+        return list(rows), total
 
     async def save(self, user: User) -> User:
         """Commit an updated user instance and reload relationships."""

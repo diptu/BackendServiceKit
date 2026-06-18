@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     RESET_TOKEN_TTL_MINUTES: int = 15
 
+    # Logging
+    LOG_LEVEL: str = "INFO"
+
     # Google OAuth2 / OIDC — all values must be set via environment / .env in production.
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
