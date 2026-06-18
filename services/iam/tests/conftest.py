@@ -2,8 +2,8 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.api.v1.dependencies import get_async_db
 from app.db.base import Base
-from app.db.session import get_db
 from app.main import app as app_instance
 
 # Ensure your User model (and all other models) are imported here!
@@ -55,7 +55,10 @@ def app(test_db):
                 await session.rollback()
                 raise
 
-    app_instance.dependency_overrides[get_db] = _override_get_db
+    # Override get_async_db (the dependency the router actually declares via Depends)
+    # rather than get_db, which is called directly inside get_async_db and thus
+    # bypasses FastAPI's dependency_overrides lookup.
+    app_instance.dependency_overrides[get_async_db] = _override_get_db
     yield app_instance
     app_instance.dependency_overrides.clear()
 

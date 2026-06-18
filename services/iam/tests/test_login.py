@@ -1,26 +1,6 @@
 import pytest
 from fastapi import status
 
-from app.main import app as app_instance
-
-# ==============================================================================
-# FIXTURES & CONFIGURATION
-# ==============================================================================
-
-
-@pytest.fixture(scope="session")
-def app():
-    """Provides the application instance."""
-    return app_instance
-
-
-@pytest.fixture
-def db_session(mocker):
-    """Provides a mocked or isolated DB session wrapper to avoid global state."""
-    mock_session = mocker.MagicMock()
-    return mock_session
-
-
 # ==============================================================================
 # LOGIN ENDPOINT TESTS
 # ==============================================================================
@@ -31,29 +11,35 @@ class TestLogin:
     @pytest.fixture
     def seeded_user(self, mocker):
         """Utility fixture to mock the AuthService return value matching TokenMatrixResponse."""
-        mock_response_data = {
-            "access_token": "mocked_access_jwt_token_string",
-            "refresh_token": "mocked_refresh_jwt_token_string",
-            "token_type": "Bearer",
-            "user": {
-                "id": "00000000-0000-0000-0000-000000000000",
-                "email": "auth_user@example.com",
-                "is_active": True,
-                "is_verified": True,
-                "is_superuser": False,
-                "last_login_at": "2026-06-14T23:21:00Z",
-                "created_at": "2026-06-14T23:21:00Z",
-                "updated_at": "2026-06-14T23:21:00Z",
-                "roles": [],
-                "profile": {"full_name": "Authenticated User"},
-            },
-        }
+        from datetime import UTC, datetime
+        from uuid import UUID
 
-        # Patch the actual login service execution point to return our valid response payload structure
-        mocker.patch(
-            "app.services.auth.AuthService.login", return_value=mock_response_data
+        from app.schemas.user import TokenMatrixResponse, UserOut, UserProfileOut
+
+        user_out = UserOut(
+            id=UUID("00000000-0000-0000-0000-000000000000"),
+            email="auth_user@example.com",
+            is_active=True,
+            is_verified=True,
+            is_superuser=False,
+            last_login_at=datetime(2026, 6, 14, 23, 21, tzinfo=UTC),
+            created_at=datetime(2026, 6, 14, 23, 21, tzinfo=UTC),
+            updated_at=datetime(2026, 6, 14, 23, 21, tzinfo=UTC),
+            roles=[],
+            profile=UserProfileOut(full_name="Authenticated User"),
         )
-        return mock_response_data
+        mock_response = TokenMatrixResponse(
+            access_token="mocked_access_jwt_token_string",
+            refresh_token="mocked_refresh_jwt_token_string",
+            token_type="Bearer",
+            user=user_out,
+        )
+
+        mocker.patch(
+            "app.services.auth.AuthService.login", return_value=mock_response
+        )
+        # Return a plain dict so existing assertions keep working unchanged
+        return mock_response.model_dump(mode="json")
 
     async def test_login_success(self, client, seeded_user, mocker):
         """Should return 200 and a valid JWT token upon correct credentials."""

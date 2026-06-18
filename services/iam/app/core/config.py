@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Cookie security — set False only in local HTTP dev environments
+    COOKIE_SECURE: bool = True
+
     model_config = SettingsConfigDict(extra="ignore", env_file=None)
 
 

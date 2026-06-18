@@ -69,14 +69,13 @@ extend-immutable-calls = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S105", "S106", "S107"]
 
 [tool.pyright]
 include = ["app"]
 reportMissingTypeStubs = false
 reportUnknownMemberType = false
 typeCheckingMode = "standard" # Elevate to "strict" for mission-critical services
-
-"tests/**/*.py" = ["S105", "S106", "S107"]
 
 
 [tool.pytest.ini_options]

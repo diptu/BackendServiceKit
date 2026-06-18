@@ -171,3 +171,15 @@ class TokenMatrixResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"  # noqa: S105
     user: UserOut
+
+
+class RefreshTokenRequest(BaseModel):
+    """Body-based carrier for clients that cannot use HttpOnly cookies."""
+
+    refresh_token: str
+
+
+class LogoutRequest(BaseModel):
+    """Optional body carrier for logout when the client cannot send cookies."""
+
+    refresh_token: str | None = None
