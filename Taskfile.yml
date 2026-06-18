@@ -364,3 +364,147 @@ tasks:
       - echo "  ✓ services/{{.SERVICE}} passed all CI checks"
       # Remove the SQLite file the app lifespan creates during test startup
       - find . -name "test_db.sqlite" -delete 2>/dev/null || true
+
+
+# =========================
+# CI/CD EMULATION (act)
+# Runs GitHub Actions workflows inside Docker containers on the local machine,
+# consuming zero remote CI minutes and eliminating "works on my machine" drift.
+#
+# Runtime requirements (one-time setup):
+#   1. Docker Desktop running          — https://docs.docker.com/get-docker
+#   2. act installed                   — brew install act
+#   3. Secrets file present            — cp .secrets.local.example .secrets.local
+#
+# Configuration is read from .actrc (checked in) — no per-command flags needed
+# for platform, architecture, or pull policy. First run pulls the
+# catthehacker/ubuntu:act-latest image (~1.1 GB); subsequent runs are fast.
+#
+# Apple Silicon note: .actrc forces linux/amd64 via Rosetta 2 / QEMU to match
+# GitHub-hosted ubuntu-latest runners exactly. No extra setup required.
+# =========================
+
+  ci-emulate:
+    desc: "Emulate full GitHub Actions CI pipeline locally via act (all matrix services)"
+    summary: |
+      Runs .github/workflows/ci.yml inside a Docker container using act.
+      Mirrors the GitHub-hosted runner environment — same Ubuntu image,
+      same Python version, same DATABASE_URL, same fail-fast behaviour.
+
+      First run: pulls catthehacker/ubuntu:act-latest (~1.1 GB).
+      On Apple Silicon: runs as linux/amd64 via Rosetta 2 (see .actrc).
+
+      To target one service: task ci-emulate:one SERVICE=iam
+    preconditions:
+      - sh: command -v docker
+        msg: "Docker not found.\n  Install Docker Desktop: https://docs.docker.com/get-docker"
+      - sh: docker info >/dev/null 2>&1
+        msg: "Docker daemon is not running.\n  Start Docker Desktop and retry."
+      - sh: command -v act
+        msg: "act not installed.\n  macOS: brew install act\n  Linux: curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash\n  Docs:  https://github.com/nektos/act"
+      - sh: test -f .secrets.local
+        msg: ".secrets.local not found.\n  Create it from the template: cp .secrets.local.example .secrets.local\n  Then set GITHUB_TOKEN (dummy value is fine for CI-only runs)."
+    cmds:
+      - |
+        echo ""
+        echo "══════════════════════════════════════════════════════════"
+        echo "  CI EMULATE  ▶  act push → .github/workflows/ci.yml"
+        printf "  Host arch : %s  |  Container arch : linux/amd64\n" "$(uname -m)"
+        echo "══════════════════════════════════════════════════════════"
+      - |
+        act push \
+          --workflows .github/workflows/ci.yml \
+          --secret-file .secrets.local \
+          --env-file .env.act
+      - |
+        echo ""
+        echo "══════════════════════════════════════════════════════════"
+        echo "  CI EMULATE  ✓  workflow completed"
+        echo "══════════════════════════════════════════════════════════"
+
+
+  ci-emulate:one:
+    desc: "Emulate CI for one matrix service locally: task ci-emulate:one SERVICE=iam"
+    summary: |
+      Runs .github/workflows/ci.yml filtered to a single matrix service via
+      act's --matrix flag. Useful for fast feedback on a specific service
+      without waiting for all matrix entries to complete.
+
+      Example: task ci-emulate:one SERVICE=iam
+    requires:
+      vars: [SERVICE]
+    preconditions:
+      - sh: command -v docker
+        msg: "Docker not found.\n  Install Docker Desktop: https://docs.docker.com/get-docker"
+      - sh: docker info >/dev/null 2>&1
+        msg: "Docker daemon is not running.\n  Start Docker Desktop and retry."
+      - sh: command -v act
+        msg: "act not installed.\n  macOS: brew install act"
+      - sh: test -f .secrets.local
+        msg: ".secrets.local not found.\n  cp .secrets.local.example .secrets.local"
+      - sh: test -f services/{{.SERVICE}}/pyproject.toml
+        msg: "services/{{.SERVICE}}/pyproject.toml not found — is SERVICE='{{.SERVICE}}' correct?"
+    cmds:
+      - |
+        echo ""
+        echo "══════════════════════════════════════════════════════════"
+        echo "  CI EMULATE  ▶  act push → service: {{.SERVICE}}"
+        echo "══════════════════════════════════════════════════════════"
+      - |
+        act push \
+          --workflows .github/workflows/ci.yml \
+          --matrix service:{{.SERVICE}} \
+          --secret-file .secrets.local \
+          --env-file .env.act
+      - |
+        echo ""
+        echo "══════════════════════════════════════════════════════════"
+        echo "  CI EMULATE  ✓  service {{.SERVICE}} completed"
+        echo "══════════════════════════════════════════════════════════"
+
+
+  cd-emulate:
+    desc: "Emulate GitHub Actions CD pipeline locally via act (requires GHCR PAT with packages:write)"
+    summary: |
+      Runs .github/workflows/cd.yml inside a Docker container using act.
+      Builds the service image and attempts a real push to GHCR.
+
+      PREREQUISITES:
+        - GITHUB_TOKEN in .secrets.local must be a real PAT with packages:write scope.
+        - Docker socket is mounted into the container (--privileged) so docker build works.
+        - Dockerfile.service must exist at the repository root.
+
+      To dry-run without pushing:
+        ACT_FLAGS="--dry-run" task cd-emulate
+    preconditions:
+      - sh: command -v docker
+        msg: "Docker not found.\n  Install Docker Desktop: https://docs.docker.com/get-docker"
+      - sh: docker info >/dev/null 2>&1
+        msg: "Docker daemon is not running.\n  Start Docker Desktop and retry."
+      - sh: command -v act
+        msg: "act not installed.\n  macOS: brew install act"
+      - sh: test -f .secrets.local
+        msg: ".secrets.local not found.\n  cp .secrets.local.example .secrets.local\n  CD emulation requires a real GITHUB_TOKEN with packages:write scope."
+      - sh: test -f Dockerfile.service
+        msg: "Dockerfile.service not found at repository root — required by cd.yml."
+    vars:
+      ACT_FLAGS: '{{.ACT_FLAGS | default ""}}'
+    cmds:
+      - |
+        echo ""
+        echo "══════════════════════════════════════════════════════════"
+        echo "  CD EMULATE  ▶  act push → .github/workflows/cd.yml"
+        echo "  WARNING: Pushes real images to GHCR (use ACT_FLAGS=--dry-run to skip)."
+        echo "══════════════════════════════════════════════════════════"
+      - |
+        act push \
+          --workflows .github/workflows/cd.yml \
+          --secret-file .secrets.local \
+          --env-file .env.act \
+          --privileged \
+          {{.ACT_FLAGS}}
+      - |
+        echo ""
+        echo "══════════════════════════════════════════════════════════"
+        echo "  CD EMULATE  ✓  workflow completed"
+        echo "══════════════════════════════════════════════════════════"

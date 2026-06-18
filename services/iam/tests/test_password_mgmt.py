@@ -62,9 +62,7 @@ async def registered_user(https_client: AsyncClient, unique_email: str) -> str:
 
 
 @pytest.fixture
-async def access_token(
-    https_client: AsyncClient, registered_user: str
-) -> str:
+async def access_token(https_client: AsyncClient, registered_user: str) -> str:
     """Logs in the registered user and returns a fresh access token."""
     resp = await https_client.post(
         "/api/v1/auth/login",
@@ -125,18 +123,14 @@ async def _forgot_password(client: AsyncClient, email: str) -> Any:
     )
 
 
-async def _reset_password(
-    client: AsyncClient, token: str, new_password: str
-) -> Any:
+async def _reset_password(client: AsyncClient, token: str, new_password: str) -> Any:
     return await client.post(
         "/api/v1/auth/password/reset",
         json={"token": token, "new_password": new_password},
     )
 
 
-async def _login(
-    client: AsyncClient, email: str, password: str
-) -> Any:
+async def _login(client: AsyncClient, email: str, password: str) -> Any:
     return await client.post(
         "/api/v1/auth/login",
         data={"username": email, "password": password},
@@ -176,9 +170,7 @@ class TestChangePassword:
         resp = await _login(https_client, registered_user, _DEFAULT_PASSWORD)
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
-    async def test_wrong_current_password_returns_400(
-        self, https_client, access_token
-    ):
+    async def test_wrong_current_password_returns_400(self, https_client, access_token):
         resp = await _change_password(
             https_client, access_token, "WrongCurrent1!", _NEW_PASSWORD
         )
@@ -192,9 +184,7 @@ class TestChangePassword:
         )
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
-    async def test_weak_new_password_returns_422(
-        self, https_client, access_token
-    ):
+    async def test_weak_new_password_returns_422(self, https_client, access_token):
         resp = await _change_password(
             https_client, access_token, _DEFAULT_PASSWORD, "short"
         )
@@ -216,9 +206,7 @@ class TestChangePassword:
 
 @pytest.mark.anyio
 class TestForgotPassword:
-    async def test_known_email_returns_202(
-        self, https_client, registered_user, mocker
-    ):
+    async def test_known_email_returns_202(self, https_client, registered_user, mocker):
         mocker.patch(
             "app.api.v1.password._email_service.send_password_reset",
             new_callable=AsyncMock,
@@ -282,6 +270,7 @@ class TestForgotPassword:
         await _forgot_password(https_client, registered_user)
 
         from sqlalchemy import select
+
         stmt = select(PasswordResetToken)
         result = await db_session.execute(stmt)
         tokens = result.scalars().all()
@@ -296,9 +285,7 @@ class TestForgotPassword:
 
 @pytest.mark.anyio
 class TestResetPassword:
-    async def test_valid_token_returns_204(
-        self, https_client, issued_reset_token
-    ):
+    async def test_valid_token_returns_204(self, https_client, issued_reset_token):
         _, raw_token = issued_reset_token
         resp = await _reset_password(https_client, raw_token, _NEW_PASSWORD)
         assert resp.status_code == status.HTTP_204_NO_CONTENT
@@ -321,9 +308,7 @@ class TestResetPassword:
         resp = await _login(https_client, email, _DEFAULT_PASSWORD)
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
-    async def test_token_is_single_use(
-        self, https_client, issued_reset_token
-    ):
+    async def test_token_is_single_use(self, https_client, issued_reset_token):
         """Second use of the same token must return 400."""
         _, raw_token = issued_reset_token
         first = await _reset_password(https_client, raw_token, _NEW_PASSWORD)
@@ -344,9 +329,7 @@ class TestResetPassword:
         user = await UserRepository(db_session).get_by_email(registered_user)
         assert user is not None
 
-        expired_model, raw_token = PasswordResetToken.generate(
-            user.id, ttl_minutes=-1
-        )
+        expired_model, raw_token = PasswordResetToken.generate(user.id, ttl_minutes=-1)
         db_session.add(expired_model)
         await db_session.commit()
 
@@ -355,12 +338,12 @@ class TestResetPassword:
         assert "expired" in resp.json()["detail"].lower()
 
     async def test_invalid_token_returns_400(self, https_client):
-        resp = await _reset_password(https_client, "completely-fake-token", _NEW_PASSWORD)
+        resp = await _reset_password(
+            https_client, "completely-fake-token", _NEW_PASSWORD
+        )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
-    async def test_tampered_token_returns_400(
-        self, https_client, issued_reset_token
-    ):
+    async def test_tampered_token_returns_400(self, https_client, issued_reset_token):
         _, raw_token = issued_reset_token
         tampered = raw_token[:-4] + "XXXX"
         resp = await _reset_password(https_client, tampered, _NEW_PASSWORD)
@@ -464,9 +447,7 @@ class TestPasswordAuditLogging:
         calls = [c.args[0] for c in mock.log.call_args_list]
         assert AuditEventType.PASSWORD_RESET_SUCCESS in calls
 
-    async def test_reset_password_failure_emits_audit_event(
-        self, https_client, mocker
-    ):
+    async def test_reset_password_failure_emits_audit_event(self, https_client, mocker):
         mock = mocker.patch(
             "app.api.v1.password._audit_logger",
             spec=AuditLogger,

@@ -11,8 +11,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 
-_TOKEN_BYTES = 32   # 256-bit raw entropy → 64-char hex digest stored
-_DEFAULT_TTL = 15   # minutes
+_TOKEN_BYTES = 32  # 256-bit raw entropy → 64-char hex digest stored
+_DEFAULT_TTL = 15  # minutes
 
 
 class PasswordResetToken(Base):
