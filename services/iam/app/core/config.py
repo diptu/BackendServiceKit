@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     RESET_TOKEN_TTL_MINUTES: int = 15
 
+    # Google OAuth2 / OIDC — all values must be set via environment / .env in production.
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/google/callback"
+    GOOGLE_AUTH_URL: str = "https://accounts.google.com/o/oauth2/v2/auth"
+    GOOGLE_TOKEN_URL: str = "https://oauth2.googleapis.com/token"  # noqa: S105
+    GOOGLE_JWKS_URL: str = "https://www.googleapis.com/oauth2/v3/certs"
+
     model_config = SettingsConfigDict(extra="ignore", env_file=None)
 
 

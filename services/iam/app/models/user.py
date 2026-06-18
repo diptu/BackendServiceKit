@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Boolean, DateTime, Index, String, func
+from sqlalchemy import Boolean, DateTime, Index, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -33,7 +33,12 @@ ACTIVE_REFRESH_TOKENS: dict[str, dict[str, Any]] = {}
 class User(Base):
     __tablename__ = "users"
 
-    __table_args__ = (Index("idx_users_email", "email"),)
+    __table_args__ = (
+        Index("idx_users_email", "email"),
+        # Composite unique: one Google account maps to at most one local user.
+        # NULL, NULL is allowed multiple times (standard SQL NULL != NULL semantics).
+        UniqueConstraint("oauth_provider", "oauth_id", name="uq_user_oauth"),
+    )
 
     # -------------------------
     # Identity (IAM CORE ONLY)
@@ -50,9 +55,28 @@ class User(Base):
         nullable=False,
     )
 
-    password_hash: Mapped[str] = mapped_column(
+    # Nullable: OAuth-only users have no password; native users always have a hash.
+    password_hash: Mapped[str | None] = mapped_column(
         String(255),
-        nullable=False,
+        nullable=True,
+    )
+
+    # -------------------------
+    # Federated Identity (OAuth2 / OIDC)
+    # -------------------------
+    # NULL for native email/password users; "google" for Google-authenticated users.
+    oauth_provider: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+        default=None,
+    )
+
+    # The provider's stable sub/user-id claim (e.g. Google's "sub").
+    oauth_id: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        default=None,
+        index=True,
     )
 
     # -------------------------

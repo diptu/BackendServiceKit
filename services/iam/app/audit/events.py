@@ -14,6 +14,9 @@ class AuditEventType(StrEnum):
     PASSWORD_RESET_REQUESTED = "auth.password.reset.requested"  # noqa: S105
     PASSWORD_RESET_SUCCESS = "auth.password.reset.success"  # noqa: S105
     PASSWORD_RESET_FAILURE = "auth.password.reset.failure"  # noqa: S105
+    GOOGLE_LOGIN_SUCCESS = "auth.google.login.success"
+    GOOGLE_LOGIN_FAILURE = "auth.google.login.failure"
+    GOOGLE_ACCOUNT_LINKED = "auth.google.account.linked"
 
 
 @dataclass(slots=True)

@@ -86,6 +86,27 @@ class AuthService:
         return roles, permissions
 
     # ------------------------------------------------------------------
+    # Issue tokens (shared by native login and OAuth callback)
+    # ------------------------------------------------------------------
+
+    def issue_tokens(self, user: User) -> TokenMatrixResponse:
+        """
+        Mint a fresh JWT access + refresh pair for *user* and return
+        a TokenMatrixResponse.  Called after any successful authentication
+        method (password or OAuth) so the token lifecycle is centralised.
+        """
+        roles, permissions = self._collect_claims(user)
+        access_token, refresh_token, *_ = self._build_token_pair(
+            user, roles, permissions
+        )
+        return TokenMatrixResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer",  # noqa: S106
+            user=UserOut.model_validate(user),
+        )
+
+    # ------------------------------------------------------------------
     # Register
     # ------------------------------------------------------------------
 
@@ -141,7 +162,8 @@ class AuthService:
 
         user = await self.user_repository.get_by_email(email)
 
-        if not user or not verify_password(password, user.password_hash):
+        # Short-circuit for OAuth-only users who have no password_hash set.
+        if not user or not user.password_hash or not verify_password(password, user.password_hash):
             if self._audit:
                 self._audit.log(
                     AuditEventType.LOGIN_FAILURE,
