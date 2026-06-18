@@ -163,7 +163,11 @@ class AuthService:
         user = await self.user_repository.get_by_email(email)
 
         # Short-circuit for OAuth-only users who have no password_hash set.
-        if not user or not user.password_hash or not verify_password(password, user.password_hash):
+        if (
+            not user
+            or not user.password_hash
+            or not verify_password(password, user.password_hash)
+        ):
             if self._audit:
                 self._audit.log(
                     AuditEventType.LOGIN_FAILURE,

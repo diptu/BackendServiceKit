@@ -243,9 +243,7 @@ class TestGoogleCallbackHappyPath:
         )
         assert resp.json()["user"]["email"] == _GOOGLE_EMAIL
 
-    async def test_refresh_cookie_is_set(
-        self, https_client, mock_exchange_and_verify
-    ):
+    async def test_refresh_cookie_is_set(self, https_client, mock_exchange_and_verify):
         mock_exchange_and_verify()
         _seed_state("cookie_state")
         resp = await https_client.get(
@@ -367,9 +365,7 @@ class TestGoogleCallbackStateSecurity:
         )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
-    async def test_state_is_single_use(
-        self, https_client, mock_exchange_and_verify
-    ):
+    async def test_state_is_single_use(self, https_client, mock_exchange_and_verify):
         """Second request with the same state must fail even if first succeeded."""
         mock_exchange_and_verify()
         _seed_state("reuse_state")
@@ -421,9 +417,7 @@ class TestGoogleCallbackTokenErrors:
         )
         assert resp.status_code == status.HTTP_502_BAD_GATEWAY
 
-    async def test_missing_id_token_in_response_returns_502(
-        self, https_client, mocker
-    ):
+    async def test_missing_id_token_in_response_returns_502(self, https_client, mocker):
         mocker.patch.object(
             GoogleOAuthService,
             "exchange_code",
@@ -459,7 +453,9 @@ class TestGoogleCallbackTokenErrors:
         )
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
-    async def test_wrong_issuer_returns_401(self, https_client, mock_exchange_and_verify):
+    async def test_wrong_issuer_returns_401(
+        self, https_client, mock_exchange_and_verify
+    ):
         mock_exchange_and_verify(iss="https://evil.example.com")
         # Override verify_id_token to raise 401 for wrong issuer
         with __import__("unittest.mock", fromlist=["patch"]).patch.object(
@@ -479,9 +475,7 @@ class TestGoogleCallbackTokenErrors:
 
     async def test_missing_code_param_returns_400(self, https_client):
         _seed_state("no_code_state")
-        resp = await https_client.get(
-            _CALLBACK_URL, params={"state": "no_code_state"}
-        )
+        resp = await https_client.get(_CALLBACK_URL, params={"state": "no_code_state"})
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
 
@@ -523,9 +517,7 @@ class TestJwksCache:
         _google_module._jwks["data"] = {"keys": []}
         _google_module._jwks["expiry"] = datetime.now(UTC) + timedelta(hours=1)
 
-        fetch_spy = mocker.patch(
-            "httpx.AsyncClient.get", new_callable=AsyncMock
-        )
+        fetch_spy = mocker.patch("httpx.AsyncClient.get", new_callable=AsyncMock)
 
         result = await _google_module._fetch_jwks()
 
@@ -556,9 +548,7 @@ class TestGoogleAuthAuditLogging:
         event_types = [call.args[0] for call in audit_mock.log.call_args_list]
         assert AuditEventType.GOOGLE_LOGIN_SUCCESS in event_types
 
-    async def test_google_error_emits_failure_audit_event(
-        self, https_client, mocker
-    ):
+    async def test_google_error_emits_failure_audit_event(self, https_client, mocker):
         audit_mock = mocker.patch(
             "app.api.v1.google_auth._audit_logger",
             spec=AuditLogger,
@@ -572,9 +562,7 @@ class TestGoogleAuthAuditLogging:
         event_types = [call.args[0] for call in audit_mock.log.call_args_list]
         assert AuditEventType.GOOGLE_LOGIN_FAILURE in event_types
 
-    async def test_token_error_emits_failure_audit_event(
-        self, https_client, mocker
-    ):
+    async def test_token_error_emits_failure_audit_event(self, https_client, mocker):
         mocker.patch.object(
             GoogleOAuthService,
             "exchange_code",

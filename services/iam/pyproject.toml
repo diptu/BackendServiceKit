@@ -21,6 +21,7 @@ dependencies = [
     "python-multipart>=0.0.32",
     "sqlalchemy>=2.0.50",
     "structlog>=24.1.0",
+    "types-python-jose>=3.5.0.20260408",
 ]
 
 # Development & testing environments (PEP 735)

@@ -93,9 +93,11 @@ class UserRepository:
                 )
             )
         if role is not None:
-            base = base.join(UserRole, UserRole.user_id == User.id).join(
-                Role, Role.id == UserRole.role_id
-            ).where(Role.slug == role)
+            base = (
+                base.join(UserRole, UserRole.user_id == User.id)
+                .join(Role, Role.id == UserRole.role_id)
+                .where(Role.slug == role)
+            )
         if is_active is not None:
             base = base.where(User.is_active == is_active)
         if is_verified is not None:
@@ -106,8 +108,10 @@ class UserRepository:
 
         offset = (page - 1) * page_size
         rows = (
-            await self.session.execute(base.offset(offset).limit(page_size))
-        ).scalars().all()
+            (await self.session.execute(base.offset(offset).limit(page_size)))
+            .scalars()
+            .all()
+        )
 
         return list(rows), total
 

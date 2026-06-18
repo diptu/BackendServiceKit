@@ -150,7 +150,9 @@ class TestListUsers:
 
 class TestGetUser:
     @pytest.mark.anyio
-    async def test_admin_can_get_any_user(self, client, admin_user, regular_user) -> None:
+    async def test_admin_can_get_any_user(
+        self, client, admin_user, regular_user
+    ) -> None:
         token = _token(admin_user["id"])
         resp = await client.get(
             f"/api/v1/users/{regular_user['id']}",
@@ -169,7 +171,9 @@ class TestGetUser:
         assert resp.status_code == 200
 
     @pytest.mark.anyio
-    async def test_user_cannot_get_other_user(self, client, regular_user, admin_user) -> None:
+    async def test_user_cannot_get_other_user(
+        self, client, regular_user, admin_user
+    ) -> None:
         token = _token(regular_user["id"])
         resp = await client.get(
             f"/api/v1/users/{admin_user['id']}",
@@ -196,7 +200,9 @@ class TestGetUser:
 
 class TestUpdateUser:
     @pytest.mark.anyio
-    async def test_admin_can_deactivate_user(self, client, admin_user, regular_user) -> None:
+    async def test_admin_can_deactivate_user(
+        self, client, admin_user, regular_user
+    ) -> None:
         token = _token(admin_user["id"])
         resp = await client.patch(
             f"/api/v1/users/{regular_user['id']}",
@@ -207,7 +213,9 @@ class TestUpdateUser:
         assert resp.json()["is_active"] is False
 
     @pytest.mark.anyio
-    async def test_admin_can_verify_user(self, client, admin_user, regular_user) -> None:
+    async def test_admin_can_verify_user(
+        self, client, admin_user, regular_user
+    ) -> None:
         token = _token(admin_user["id"])
         resp = await client.patch(
             f"/api/v1/users/{regular_user['id']}",
@@ -235,7 +243,9 @@ class TestUpdateUser:
 
 class TestActivateDeactivate:
     @pytest.mark.anyio
-    async def test_deactivate_then_activate(self, client, admin_user, regular_user) -> None:
+    async def test_deactivate_then_activate(
+        self, client, admin_user, regular_user
+    ) -> None:
         token = _token(admin_user["id"])
 
         resp = await client.post(
@@ -340,7 +350,9 @@ class TestUserProfile:
         assert resp.status_code == 403
 
     @pytest.mark.anyio
-    async def test_admin_can_update_any_profile(self, client, admin_user, regular_user) -> None:
+    async def test_admin_can_update_any_profile(
+        self, client, admin_user, regular_user
+    ) -> None:
         token = _token(admin_user["id"])
         resp = await client.patch(
             f"/api/v1/users/{regular_user['id']}/profile",

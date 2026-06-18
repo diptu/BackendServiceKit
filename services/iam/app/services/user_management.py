@@ -40,13 +40,17 @@ class UserManagementService:
     async def get_user(self, user_id: UUID) -> UserOut:
         user = await self._users.get_by_id(user_id)
         if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
+            )
         return UserOut.model_validate(user)
 
     async def update_user(self, user_id: UUID, data: AdminUserUpdate) -> UserOut:
         user = await self._users.get_by_id(user_id)
         if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
+            )
         if data.is_active is not None:
             user.is_active = data.is_active
         if data.is_verified is not None:
@@ -57,7 +61,9 @@ class UserManagementService:
     async def set_active(self, user_id: UUID, *, active: bool) -> UserOut:
         user = await self._users.get_by_id(user_id)
         if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
+            )
         user.is_active = active
         user = await self._users.save(user)
         return UserOut.model_validate(user)
@@ -71,7 +77,9 @@ class UserManagementService:
             )
         return UserProfileOut.model_validate(profile)
 
-    async def upsert_profile(self, user_id: UUID, data: ProfileUpdateRequest) -> UserProfileOut:
+    async def upsert_profile(
+        self, user_id: UUID, data: ProfileUpdateRequest
+    ) -> UserProfileOut:
         await self._assert_user_exists(user_id)
         profile = await self._profiles.upsert(
             user_id,
@@ -84,4 +92,6 @@ class UserManagementService:
     async def _assert_user_exists(self, user_id: UUID) -> None:
         user = await self._users.get_by_id(user_id)
         if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
+            )

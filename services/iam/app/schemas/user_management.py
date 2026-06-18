@@ -32,7 +32,9 @@ class UserPageResponse(BaseModel):
         cls, items: list[UserOut], total: int, page: int, page_size: int
     ) -> UserPageResponse:
         pages = max(1, math.ceil(total / page_size)) if total else 1
-        return cls(items=items, total=total, page=page, page_size=page_size, pages=pages)
+        return cls(
+            items=items, total=total, page=page, page_size=page_size, pages=pages
+        )
 
 
 class AdminUserUpdate(BaseModel):

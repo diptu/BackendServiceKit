@@ -85,7 +85,9 @@ async def get_user(
     if current_user.id != user_id and not current_user.is_superuser:
         from fastapi import HTTPException, status
 
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied."
+        )
     return await svc.get_user(user_id)
 
 
@@ -147,7 +149,9 @@ async def get_profile(
     if current_user.id != user_id and not current_user.is_superuser:
         from fastapi import HTTPException, status
 
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied."
+        )
     return await svc.get_profile(user_id)
 
 
@@ -165,5 +169,7 @@ async def update_profile(
     if current_user.id != user_id and not current_user.is_superuser:
         from fastapi import HTTPException, status
 
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied."
+        )
     return await svc.upsert_profile(user_id, data)
