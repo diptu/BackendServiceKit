@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     # Cookie security — set False only in local HTTP dev environments
     COOKIE_SECURE: bool = True
 
+    # Password reset
+    FRONTEND_URL: str = "http://localhost:3000"
+    RESET_TOKEN_TTL_MINUTES: int = 15
+
     model_config = SettingsConfigDict(extra="ignore", env_file=None)
 
 

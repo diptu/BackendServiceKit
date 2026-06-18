@@ -169,9 +169,7 @@ async def logout(
     service: AuthService = Depends(get_auth_service),
     body: Annotated[LogoutRequest | None, Body()] = None,
 ):
-    token = _extract_refresh_token(
-        request, body.refresh_token if body else None
-    )
+    token = _extract_refresh_token(request, body.refresh_token if body else None)
     ip = request.client.host if request.client else None
     ua = request.headers.get("User-Agent")
 

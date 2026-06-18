@@ -9,6 +9,11 @@ class AuditEventType(StrEnum):
     TOKEN_REFRESH = "auth.token.refresh"  # noqa: S105
     TOKEN_REFRESH_FAILURE = "auth.token.refresh.failure"  # noqa: S105
     LOGOUT = "auth.logout"
+    PASSWORD_CHANGED = "auth.password.changed"  # noqa: S105
+    PASSWORD_CHANGE_FAILURE = "auth.password.change.failure"  # noqa: S105
+    PASSWORD_RESET_REQUESTED = "auth.password.reset.requested"  # noqa: S105
+    PASSWORD_RESET_SUCCESS = "auth.password.reset.success"  # noqa: S105
+    PASSWORD_RESET_FAILURE = "auth.password.reset.failure"  # noqa: S105
 
 
 @dataclass(slots=True)

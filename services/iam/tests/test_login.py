@@ -35,9 +35,7 @@ class TestLogin:
             user=user_out,
         )
 
-        mocker.patch(
-            "app.services.auth.AuthService.login", return_value=mock_response
-        )
+        mocker.patch("app.services.auth.AuthService.login", return_value=mock_response)
         # Return a plain dict so existing assertions keep working unchanged
         return mock_response.model_dump(mode="json")
 

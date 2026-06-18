@@ -69,3 +69,13 @@ async def client(app):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+
+@pytest.fixture
+async def db_session(test_db):
+    """
+    Raw async session for test-level data seeding (e.g. inserting expired tokens).
+    Uses the same in-memory SQLite instance as the app via ?cache=shared.
+    """
+    async with test_db() as session:
+        yield session

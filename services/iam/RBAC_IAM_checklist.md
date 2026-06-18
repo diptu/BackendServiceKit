@@ -26,6 +26,12 @@
 - [ ] Forgot password
 - [ ] Password reset flow
 
+### Federated Identity (OAuth2 / OIDC)
+- [ ] Configure OAuth2 state/nonce mechanism for CSRF mitigation
+- [ ] Implement Google login redirection endpoint
+- [ ] Implement Google OAuth2 backend callback handler
+- [ ] Extract claims from verified ID tokens and map to local RBAC user profiles
+
 ## 3. User Management
 - [ ] User CRUD
 - [ ] User profile management

@@ -153,9 +153,7 @@ class TestRegisterRegression:
             {"email": "x@example.com"},
         ],
     )
-    async def test_register_missing_fields_returns_422(
-        self, https_client, payload
-    ):
+    async def test_register_missing_fields_returns_422(self, https_client, payload):
         response = await https_client.post("/api/v1/auth/register", json=payload)
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
@@ -198,9 +196,7 @@ class TestLoginRegression:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     @pytest.mark.anyio
-    async def test_login_sets_httponly_refresh_cookie(
-        self, https_client, unique_email
-    ):
+    async def test_login_sets_httponly_refresh_cookie(self, https_client, unique_email):
         await _register(https_client, unique_email)
         response = await _login(https_client, unique_email)
 
@@ -417,13 +413,11 @@ class TestLogout:
         await _register(https_client, unique_email)
         login_resp = await _login(https_client, unique_email)
         refresh = login_resp.json()["refresh_token"]
-        jti = jwt.decode(
-            refresh, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )["jti"]
+        jti = jwt.decode(refresh, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])[
+            "jti"
+        ]
 
-        await https_client.post(
-            "/api/v1/auth/logout", json={"refresh_token": refresh}
-        )
+        await https_client.post("/api/v1/auth/logout", json={"refresh_token": refresh})
 
         assert ACTIVE_REFRESH_TOKENS[jti]["revoked"] is True
 
@@ -439,7 +433,10 @@ class TestLogout:
         set_cookie = response.headers.get("set-cookie", "")
         # FastAPI's delete_cookie sets max-age=0 or expires in the past
         assert "refresh_token=" in set_cookie
-        assert "max-age=0" in set_cookie.lower() or 'expires="thu, 01 jan 1970' in set_cookie.lower()
+        assert (
+            "max-age=0" in set_cookie.lower()
+            or 'expires="thu, 01 jan 1970' in set_cookie.lower()
+        )
 
     @pytest.mark.anyio
     async def test_logout_double_revoke_returns_401(self, https_client, unique_email):
@@ -447,9 +444,7 @@ class TestLogout:
         login_resp = await _login(https_client, unique_email)
         refresh = login_resp.json()["refresh_token"]
 
-        await https_client.post(
-            "/api/v1/auth/logout", json={"refresh_token": refresh}
-        )
+        await https_client.post("/api/v1/auth/logout", json={"refresh_token": refresh})
         response = await https_client.post(
             "/api/v1/auth/logout", json={"refresh_token": refresh}
         )
@@ -475,9 +470,7 @@ class TestLogout:
         login_resp = await _login(https_client, unique_email)
         refresh = login_resp.json()["refresh_token"]
 
-        await https_client.post(
-            "/api/v1/auth/logout", json={"refresh_token": refresh}
-        )
+        await https_client.post("/api/v1/auth/logout", json={"refresh_token": refresh})
         response = await https_client.post(
             "/api/v1/auth/refresh", json={"refresh_token": refresh}
         )
@@ -536,9 +529,7 @@ class TestAuditLogging:
         assert AuditEventType.TOKEN_REFRESH in calls
 
     @pytest.mark.anyio
-    async def test_refresh_failure_emits_audit_event(
-        self, https_client, mocker
-    ):
+    async def test_refresh_failure_emits_audit_event(self, https_client, mocker):
         mock = MagicMock(spec=AuditLogger)
         mocker.patch("app.api.v1.auth._audit_logger", mock)
 
@@ -551,9 +542,7 @@ class TestAuditLogging:
         assert AuditEventType.TOKEN_REFRESH_FAILURE in calls
 
     @pytest.mark.anyio
-    async def test_logout_emits_audit_event(
-        self, https_client, unique_email, mocker
-    ):
+    async def test_logout_emits_audit_event(self, https_client, unique_email, mocker):
         mock = MagicMock(spec=AuditLogger)
         mocker.patch("app.api.v1.auth._audit_logger", mock)
 
@@ -582,7 +571,8 @@ class TestAuditLogging:
         )
 
         success_calls = [
-            c for c in mock.log.call_args_list
+            c
+            for c in mock.log.call_args_list
             if c.args[0] == AuditEventType.LOGIN_SUCCESS
         ]
         assert success_calls, "Expected a LOGIN_SUCCESS audit call"
@@ -619,9 +609,9 @@ class TestOpenApiSchema:
         schema = response.json()
         me_op = schema["paths"]["/api/v1/auth/me"]["get"]
         security_reqs = me_op.get("security", [])
-        assert any(
-            "OAuth2PasswordBearer" in req for req in security_reqs
-        ), "Lock icon missing — route has no security requirement in OpenAPI spec"
+        assert any("OAuth2PasswordBearer" in req for req in security_reqs), (
+            "Lock icon missing — route has no security requirement in OpenAPI spec"
+        )
 
     @pytest.mark.anyio
     async def test_login_endpoint_has_no_security_lock(self, https_client):
@@ -631,9 +621,9 @@ class TestOpenApiSchema:
         login_op = schema["paths"]["/api/v1/auth/login"]["post"]
         # An open endpoint either omits 'security' or sets it to [{}]
         security_reqs = login_op.get("security", [])
-        assert not any(
-            "OAuth2PasswordBearer" in req for req in security_reqs
-        ), "Login endpoint must remain open (no Bearer requirement)"
+        assert not any("OAuth2PasswordBearer" in req for req in security_reqs), (
+            "Login endpoint must remain open (no Bearer requirement)"
+        )
 
 
 # ===========================================================================
