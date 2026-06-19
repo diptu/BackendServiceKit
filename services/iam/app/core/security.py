@@ -1,16 +1,16 @@
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Annotated, Any
 
 import bcrypt
 import jwt
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 
 from app.core.config import settings
+from app.core.token_blacklist import is_token_revoked
 
-# Setup standard OAuth2 scheme mapping for automated schema documentation
-# Pointing to our modular RBAC login path
+# OAuth2 scheme — tokenUrl powers the Swagger UI "Authorize" modal form
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
 pwd_context = CryptContext(
@@ -19,9 +19,25 @@ pwd_context = CryptContext(
 )
 
 
-async def is_authenticated(request: Request) -> dict[str, Any]:
+async def is_authenticated(
+    request: Request,
+    token: Annotated[str, Depends(oauth2_scheme)],
+) -> dict[str, Any]:
     """
-    Validates the inbound bearer token matrix, returning validated token claims.
+    FastAPI dependency: extracts the Bearer token via OAuth2PasswordBearer,
+    decodes and validates JWT claims, and returns the payload dict.
+    Using Depends(oauth2_scheme) causes FastAPI to emit the securityScheme
+    into the OpenAPI spec and attach the lock icon to protected routes.
+
+    If JWTContextMiddleware already decoded this exact access token at the
+    edge, reuse its result instead of decoding twice — pure optimization,
+    identical external behavior (same exceptions, same return shape) when
+    the middleware isn't present, e.g. in unit tests that call this
+    function directly or hit the app without going through the ASGI stack.
+    The revocation check below still runs even on the cached-claims path,
+    since the middleware's own decode happened earlier in the same request
+    and a malicious/expired blacklist entry could theoretically have been
+    written in between (also keeps both call sites independently correct).
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -29,38 +45,38 @@ async def is_authenticated(request: Request) -> dict[str, Any]:
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    # 1. Read from the standard 'Authorization' header instead of 'authheader'
-    auth_header = request.headers.get("Authorization")
-    if not auth_header:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing required 'Authorization' header.",
-        )
-
-    # 2. Extract and strip out the "Bearer " prefix safely
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token scheme. Expected 'Bearer <token>'.",
-        )
-
-    token = auth_header.replace("Bearer ", "", 1)
+    cached_claims: dict[str, Any] | None = getattr(request.state, "jwt_claims", None)
+    if cached_claims is not None:
+        if await is_token_revoked(cached_claims):
+            raise credentials_exception
+        return cached_claims
 
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
-        username: str | None = payload.get("sub")
+        sub: str | None = payload.get("sub")
         token_type: str | None = payload.get("type")
 
-        # Basic claim integrity checks (ensuring it's an access token specifically)
-        if username is None or token_type != "access":  # noqa: S105
+        if sub is None or token_type != "access":  # noqa: S105
+            raise credentials_exception
+
+        if await is_token_revoked(payload):
             raise credentials_exception
 
         return payload
 
     except (jwt.InvalidTokenError, jwt.ExpiredSignatureError) as exc:
         raise credentials_exception from exc
+
+
+def password_matches_identifier(password: str, identifier: str) -> bool:
+    """
+    True if `password` is identical (case-insensitive) to `identifier`
+    (typically the account's own email) — a common, real weak-credential
+    pattern worth rejecting at registration/password-change time.
+    """
+    return password.strip().lower() == identifier.strip().lower()
 
 
 def hash_password(password: str) -> str:

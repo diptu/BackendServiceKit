@@ -18,7 +18,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, Index, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,6 +27,7 @@ from app.db.base import Base
 from app.models.role_permission import RolePermission
 
 if TYPE_CHECKING:
+    from app.models.organization import Organization
     from app.models.permission import Permission
     from app.models.user import User
 
@@ -54,6 +55,26 @@ class Role(Base):
         Index("idx_roles_slug", "slug"),
         Index("idx_roles_is_system", "is_system"),
         Index("idx_roles_is_active", "is_active"),
+        Index("idx_roles_organization_id", "organization_id"),
+        # Global (platform) roles — organization_id IS NULL — must have a
+        # slug unique across the whole system (e.g. "guest", "super_admin").
+        Index(
+            "uq_roles_global_slug",
+            "slug",
+            unique=True,
+            postgresql_where=text("organization_id IS NULL"),
+            sqlite_where=text("organization_id IS NULL"),
+        ),
+        # Custom roles scoped to one organization only need a slug unique
+        # *within that organization* — two tenants may each have "manager".
+        Index(
+            "uq_roles_org_slug",
+            "organization_id",
+            "slug",
+            unique=True,
+            postgresql_where=text("organization_id IS NOT NULL"),
+            sqlite_where=text("organization_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -66,20 +87,28 @@ class Role(Base):
     # =====================================================
     name: Mapped[str] = mapped_column(
         String(255),
-        unique=True,
         nullable=False,
         default=RoleEnum.GUEST.value.replace("_", " ").title(),
     )
 
+    # Uniqueness is enforced by the partial indexes in __table_args__:
+    # globally unique when organization_id IS NULL, unique per-org otherwise.
     slug: Mapped[str] = mapped_column(
         String(100),
-        unique=True,
         nullable=False,
         default=RoleEnum.GUEST.value,
     )
 
     description: Mapped[str | None] = mapped_column(
         String(500),
+        nullable=True,
+    )
+
+    # NULL => global/platform role (e.g. "guest", "super_admin").
+    # Set   => custom role scoped to that organization only.
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=True,
     )
 
@@ -129,6 +158,12 @@ class Role(Base):
         # Pass the exact column bindings to satisfy the JoinCondition compiler
         foreign_keys=[RolePermission.role_id, RolePermission.permission_id],
         lazy="selectin",
+    )
+
+    organization: Mapped[Organization | None] = relationship(
+        "Organization",
+        back_populates="roles",
+        foreign_keys=[organization_id],
     )
 
     # =====================================================

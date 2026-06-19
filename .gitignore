@@ -215,3 +215,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# act local CI emulation
+.secrets.local
+/tmp/act-artifacts/

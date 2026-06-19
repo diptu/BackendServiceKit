@@ -4,8 +4,8 @@
 - [x] Create IAM service repository
 - [x] Configure project structure
 - [x] Setup environment variables
-- [] Configure logging
-- [ ] Setup database and migrations
+- [x] Configure logging
+- [x] Setup database and migrations
 - [x] Configure testing and CI/CD
 
 ## 2. Authentication
@@ -18,95 +18,76 @@
 ### Login
 - [x] User authentication
 - [x] Access token generation
-- [ ] Refresh token generation
-- [ ] Login audit logging
+- [x] Refresh token generation
+- [x] Login audit logging
 
 ### Password Management
-- [ ] Change password
-- [ ] Forgot password
-- [ ] Password reset flow
+- [x] Change password
+- [x] Forgot password
+- [x] Password reset flow
+
+### Federated Identity (OAuth2 / OIDC)
+- [x] Configure OAuth2 state/nonce mechanism for CSRF mitigation
+- [x] Implement Google login redirection endpoint
+- [x] Implement Google OAuth2 backend callback handler
+- [x] Extract claims from verified ID tokens and map to local RBAC user profiles
 
 ## 3. User Management
-- [ ] User CRUD
-- [ ] User profile management
-- [ ] User activation/deactivation
-- [ ] User search and filtering
+- [x] User CRUD
+- [x] User profile management
+- [x] User activation/deactivation
+- [x] User search and filtering
 
 ## 4. Organization Management
-- [ ] Create organization
-- [ ] Update organization
-- [ ] Delete organization
-- [ ] Organization membership management
+- [x] Create organization
+- [x] Update organization
+- [x] Delete organization
+- [x] Organization membership management
 
 ## 5. Role Management
-- [ ] Seed default roles
-- [ ] Create custom roles
-- [ ] Update roles
-- [ ] Delete roles
-- [ ] Assign roles to users
+- [x] Seed default roles
+- [x] Create custom roles
+- [x] Update roles
+- [x] Delete roles
+- [x] Assign roles to users
 
 ## 6. Permission Management
-- [ ] Define permissions
-- [ ] Seed permission catalog
-- [ ] Assign permissions to roles
-- [ ] Remove permissions from roles
+- [x] Define permissions
+- [x] Seed permission catalog
+- [x] Assign permissions to roles
+- [x] Remove permissions from roles
 
 ## 7. Authorization
-- [ ] JWT validation middleware
-- [ ] Role-based authorization
-- [ ] Permission-based authorization
-- [ ] Protect API endpoints
+- [x] JWT validation middleware
+- [x] Role-based authorization
+- [x] Permission-based authorization
+- [x] Protect API endpoints
 
 ## 8. Audit Logging
-- [ ] Login events
-- [ ] Logout events
-- [ ] Password changes
-- [ ] Role assignments
-- [ ] Permission updates
+- [x] Login events
+- [x] Logout events
+- [x] Password changes
+- [x] Role assignments
+- [x] Permission updates
 
 ## 9. Security
-- [ ] Rate limiting
-- [ ] Account lockout
-- [ ] Token revocation
-- [ ] Input validation
-- [ ] Security headers
+- [x] Rate limiting
+- [x] Account lockout
+- [x] Token revocation
+- [x] Input validation
+- [x] Security headers
 
 ## 10. Testing
-- [ ] Unit tests
-- [ ] Integration tests
-- [ ] Authorization tests
-- [ ] Security tests
+- [x] Unit tests
+- [x] Integration tests
+- [x] Authorization tests
+- [x] Security tests
 
 ## 11. Production Readiness
-- [ ] Health checks
-- [ ] Metrics endpoint
-- [ ] Monitoring and alerting
-- [ ] Backup and recovery
-
-# MVP Priority
-
-## Phase 1
-- [ ] Registration
-- [ ] Login
-- [ ] JWT Authentication
-- [ ] User CRUD
-- [ ] Role CRUD
-- [ ] Permission CRUD
-- [ ] Authorization Middleware
-
-## Phase 2
-- [ ] Refresh Tokens
-- [ ] Invitations
-- [ ] Audit Logs
-- [ ] Account Lockout
-
-## Phase 3
-- [ ] MFA
-- [ ] SSO (OIDC/OAuth2)
-- [ ] SCIM Provisioning
-- [ ] ABAC Support
+- [x] Health checks
+- [x] Metrics endpoint
 
 
-# Phase 4 optIonal
+<!-- # Phase 4 optIonal
 
-- [ ] Deploy on Render for free
+- [ ] Deploy on Render for free -->
