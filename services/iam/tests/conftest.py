@@ -1,6 +1,7 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
 
 from app.api.v1.dependencies import get_async_db
 from app.db.base import Base
@@ -8,8 +9,7 @@ from app.main import app as app_instance
 
 # Ensure your User model (and all other models) are imported here!
 
-# Use shared cache in-memory sqlite to allow multiple connections to see the same tables
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:?cache=shared"
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
 @pytest.fixture(scope="session")
@@ -24,21 +24,36 @@ async def test_db():
     Function-scoped database fixture. Provides a completely pristine
     database environment for every single test.
     """
+    # StaticPool keeps exactly one underlying DBAPI connection alive for the
+    # engine's whole lifetime, and hands that *same* connection out to every
+    # checkout — the documented SQLAlchemy pattern for sharing a SQLite
+    # `:memory:` database across multiple sessions (see "Using a Memory
+    # Database in Multiple Threads" in the SQLAlchemy SQLite dialect docs).
+    # The previous approach (`?cache=shared` + the default connection pool)
+    # relied on SQLite's shared-cache reference counting across *separate*
+    # physical connections — correct only as long as at least one of them
+    # stays open at all times. That's timing-sensitive: on a CI runner with
+    # different I/O/thread scheduling than a local machine, a connection
+    # could close (returning it to "no connections reference this shared
+    # cache" state, which destroys the in-memory DB) in the gap between one
+    # test's teardown and the next test's setup, surfacing as an
+    # intermittent "no such table: users" — reproducible on GitHub Actions
+    # but not necessarily locally. StaticPool removes the ambiguity by
+    # never having more than one connection in the first place.
     engine = create_async_engine(
-        TEST_DATABASE_URL, connect_args={"check_same_thread": False}
+        TEST_DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     testing_session_local = async_sessionmaker(
         bind=engine, class_=AsyncSession, expire_on_commit=False
     )
 
-    # Keep a reference to the underlying connection open so the
-    # in-memory database isn't wiped instantly between session blocks.
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     yield testing_session_local
 
-    # Clean up cleanly without worrying about async file systems
     await engine.dispose()
 
 
@@ -75,7 +90,8 @@ async def client(app):
 async def db_session(test_db):
     """
     Raw async session for test-level data seeding (e.g. inserting expired tokens).
-    Uses the same in-memory SQLite instance as the app via ?cache=shared.
+    Uses the same in-memory SQLite instance as the app, via the same
+    StaticPool-backed engine (see test_db).
     """
     async with test_db() as session:
         yield session
