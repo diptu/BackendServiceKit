@@ -81,8 +81,10 @@ class AuthService:
 
     @staticmethod
     def _collect_claims(user: User) -> tuple[list[str], list[str]]:
-        roles = [role.name for role in user.roles]
-        permissions = list({p.name for role in user.roles for p in role.permissions})
+        roles = [role.slug for role in user.roles]
+        # slug (e.g. "users:create"), not the display name — the stable,
+        # machine-checkable form route-level permission dependencies match on.
+        permissions = list({p.slug for role in user.roles for p in role.permissions})
         return roles, permissions
 
     # ------------------------------------------------------------------

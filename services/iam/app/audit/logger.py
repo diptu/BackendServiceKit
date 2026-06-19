@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Any
 
 from app.audit.events import AuditEvent, AuditEventType
 from app.audit.sink import StdoutSink
@@ -20,6 +21,7 @@ class AuditLogger:
         user_id: str | None = None,
         jti: str | None = None,
         detail: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         event = AuditEvent(
             event_type=event_type,
@@ -30,5 +32,6 @@ class AuditLogger:
             user_id=user_id,
             jti=jti,
             detail=detail,
+            metadata=metadata,
         )
         self._sink.emit(event)

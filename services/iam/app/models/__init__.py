@@ -1,5 +1,7 @@
 # app/models/__init__.py
 from app.db.base import Base
+from app.models.organization import Organization
+from app.models.organization_member import OrganizationMember
 from app.models.password_reset import PasswordResetToken
 from app.models.permission import Permission
 from app.models.role import Role
@@ -14,6 +16,8 @@ from app.models.UserProfile.user_social_link import (
 __all__ = [
     "ACTIVE_REFRESH_TOKENS",
     "Base",
+    "Organization",
+    "OrganizationMember",
     "PasswordResetToken",
     "Permission",
     "Role",

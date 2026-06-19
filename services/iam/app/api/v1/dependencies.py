@@ -1,4 +1,4 @@
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable, Coroutine
 from typing import Annotated
 from uuid import UUID
 
@@ -48,3 +48,32 @@ async def require_admin(
             detail="Admin access required.",
         )
     return current_user
+
+
+def require_permission(
+    permission_slug: str,
+) -> Callable[..., Coroutine[None, None, dict[str, object]]]:
+    """
+    Dependency factory for platform-scoped, zero-DB permission checks.
+
+    Platform role/permission slugs are embedded directly in the access
+    token at login (see AuthService._collect_claims), so this reads the
+    already-decoded JWT claims — no database round trip, no cache. Use
+    this for routes gated by a *platform-wide* capability (e.g.
+    "users:create"); organization-scoped grants change without a
+    re-login and must go through `require_org_permission` instead (see
+    app.services.org_permissions), which is DB/cache-backed by necessity.
+    """
+
+    async def _dependency(
+        claims: Annotated[dict[str, object], Depends(is_authenticated)],
+    ) -> dict[str, object]:
+        granted = claims.get("permissions")
+        if not isinstance(granted, list) or permission_slug not in granted:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Missing required permission: {permission_slug}",
+            )
+        return claims
+
+    return _dependency

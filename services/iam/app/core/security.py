@@ -3,7 +3,7 @@ from typing import Annotated, Any
 
 import bcrypt
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 
@@ -19,6 +19,7 @@ pwd_context = CryptContext(
 
 
 async def is_authenticated(
+    request: Request,
     token: Annotated[str, Depends(oauth2_scheme)],
 ) -> dict[str, Any]:
     """
@@ -26,7 +27,17 @@ async def is_authenticated(
     decodes and validates JWT claims, and returns the payload dict.
     Using Depends(oauth2_scheme) causes FastAPI to emit the securityScheme
     into the OpenAPI spec and attach the lock icon to protected routes.
+
+    If JWTContextMiddleware already decoded this exact access token at the
+    edge, reuse its result instead of decoding twice — pure optimization,
+    identical external behavior (same exceptions, same return shape) when
+    the middleware isn't present, e.g. in unit tests that call this
+    function directly or hit the app without going through the ASGI stack.
     """
+    cached_claims: dict[str, Any] | None = getattr(request.state, "jwt_claims", None)
+    if cached_claims is not None:
+        return cached_claims
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials or token has expired.",

@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
 
+    # Org-permission ACL cache. Unset (default) -> in-memory cache, zero
+    # external dependencies. Set to a real Redis URL in production to share
+    # the cache across replicas.
+    REDIS_URL: str | None = None
+    ORG_PERMISSIONS_CACHE_TTL_SECONDS: int = 60
+
     # Google OAuth2 / OIDC — all values must be set via environment / .env in production.
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""

@@ -38,9 +38,15 @@ class RoleBase(BaseModel):
 class RoleCreate(RoleBase):
     """
     Schema for creating a role.
+
+    organization_id: None creates a global/platform role (platform-admin
+    only); set it to scope a custom role to one organization.
+    permission_slugs: existing Permission slugs to attach at creation time.
     """
 
+    organization_id: uuid.UUID | None = Field(default=None)
     is_system: bool = Field(default=False)
+    permission_slugs: list[str] = Field(default_factory=list)
 
 
 # =========================================================
@@ -60,6 +66,12 @@ class RoleUpdate(BaseModel):
     description: str | None = Field(default=None, max_length=500)
 
     is_system: bool | None = None
+
+
+class RolePermissionsAssignRequest(BaseModel):
+    """Body for adding one or more existing permissions to a role."""
+
+    permission_slugs: list[str] = Field(..., min_length=1)
 
 
 # =========================================================
@@ -130,6 +142,7 @@ class RoleOut(RoleBase):
 
     id: uuid.UUID
 
+    organization_id: uuid.UUID | None = None
     is_system: bool
 
     created_at: datetime

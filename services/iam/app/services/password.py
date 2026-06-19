@@ -41,7 +41,7 @@ class PasswordService:
     ) -> None:
         user = await self.user_repository.get_by_id(user_id)
 
-        if not user or not verify_password(current_password, user.password_hash):
+        if not user or not verify_password(current_password, user.password_hash):  # type: ignore[arg-type]
             if self._audit:
                 self._audit.log(
                     AuditEventType.PASSWORD_CHANGE_FAILURE,

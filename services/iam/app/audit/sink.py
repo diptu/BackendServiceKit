@@ -18,4 +18,5 @@ class StdoutSink:
             user_agent=event.user_agent,
             jti=event.jti,
             detail=event.detail,
+            metadata=event.metadata,
         )
