@@ -64,6 +64,16 @@ def _extract_refresh_token(
     return token
 
 
+def _extract_access_token(request: Request) -> str | None:
+    """Best-effort: read the caller's access token from the Authorization
+    header so logout can blacklist it. Absence is not an error — a client
+    that only kept the refresh token still logs out successfully."""
+    header = request.headers.get("authorization", "")
+    if header.lower().startswith("bearer "):
+        return header[len("bearer ") :]
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Current user (protected — shows the lock icon in Swagger UI)
 # ---------------------------------------------------------------------------
@@ -170,9 +180,10 @@ async def logout(
     body: Annotated[LogoutRequest | None, Body()] = None,
 ):
     token = _extract_refresh_token(request, body.refresh_token if body else None)
+    access_token = _extract_access_token(request)
     ip = request.client.host if request.client else None
     ua = request.headers.get("User-Agent")
 
-    await service.logout(token, ip_address=ip, user_agent=ua)
+    await service.logout(token, access_token=access_token, ip_address=ip, user_agent=ua)
 
     response.delete_cookie(key=_REFRESH_COOKIE, path=_COOKIE_PATH)

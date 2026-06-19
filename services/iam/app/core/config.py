@@ -47,6 +47,21 @@ class Settings(BaseSettings):
     REDIS_URL: str | None = None
     ORG_PERMISSIONS_CACHE_TTL_SECONDS: int = 60
 
+    # Login brute-force rate limiting (fixed window, keyed per-email).
+    LOGIN_RATE_LIMIT_MAX_ATTEMPTS: int = 10
+    LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    # Account lockout (exponential backoff past the failure threshold).
+    ACCOUNT_LOCKOUT_THRESHOLD: int = 5
+    ACCOUNT_LOCKOUT_BASE_SECONDS: int = 30
+    ACCOUNT_LOCKOUT_MAX_SECONDS: int = 900
+
+    # Security headers / CORS.
+    CORS_ALLOWED_ORIGINS: list[str] = Field(
+        default_factory=lambda: ["http://localhost:3000"]
+    )
+    HSTS_MAX_AGE_SECONDS: int = 31_536_000
+
     # Google OAuth2 / OIDC — all values must be set via environment / .env in production.
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""

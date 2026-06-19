@@ -170,10 +170,12 @@ tasks:
 # =========================
 
   test:
-    desc: Run tests isolated within each microservice environment context
+    desc: Run tests isolated within each microservice environment context (or just SERVICE, if given)
+    vars:
+      TARGET_SERVICES: '{{.SERVICE | default .SERVICES}}'
     cmds:
       - |
-        for s in {{.SERVICES}}; do
+        for s in {{.TARGET_SERVICES}}; do
           echo "🧪 Running tests for services/$s..."
           (
             cd services/$s && \
@@ -193,30 +195,36 @@ tasks:
 # =========================
 
   lint:
-    desc: Lint all services
+    desc: Lint all services (or just SERVICE, if given)
+    vars:
+      TARGET_SERVICES: '{{.SERVICE | default .SERVICES}}'
     cmds:
       - |
         set -e
-        for s in {{.SERVICES}}; do
+        for s in {{.TARGET_SERVICES}}; do
           echo "🔍 Linting $s"
           (cd services/$s && uv run ruff check .)
         done
 
   typecheck:
-    desc: Run strict type checking with mypy across all services
+    desc: Run strict type checking with mypy across all services (or just SERVICE, if given)
+    vars:
+      TARGET_SERVICES: '{{.SERVICE | default .SERVICES}}'
     cmds:
       - |
         set -e
-        for s in {{.SERVICES}}; do
+        for s in {{.TARGET_SERVICES}}; do
           echo "🧪 Type checking services/$s..."
           (cd services/$s && uv run mypy --explicit-package-bases .)
         done
 
   format:
-    desc: Format, sort imports, and clean up unused code across all services
+    desc: Format, sort imports, and clean up unused code across all services (or just SERVICE, if given)
+    vars:
+      TARGET_SERVICES: '{{.SERVICE | default .SERVICES}}'
     cmds:
       - |
-        for s in {{.SERVICES}}; do
+        for s in {{.TARGET_SERVICES}}; do
           echo "✨ Linting and formatting services/$s..."
           (
             cd services/$s && \
@@ -225,6 +233,68 @@ tasks:
             uv run ruff format .
           )
         done
+
+
+# =========================
+# DATABASE MIGRATIONS (ALEMBIC)
+# =========================
+
+  migrate:
+    desc: "Apply alembic migrations up to head (SERVICE=iam)"
+    requires:
+      vars: [SERVICE]
+    dir: services/{{.SERVICE}}
+    preconditions:
+      - sh: test -f alembic.ini
+        msg: "services/{{.SERVICE}}/alembic.ini not found — alembic isn't configured for this service."
+    cmds:
+      - uv run alembic upgrade head
+
+  migrate:downgrade:
+    desc: "Roll back alembic migrations (SERVICE=iam, REV=-1 by default — one step back)"
+    requires:
+      vars: [SERVICE]
+    dir: services/{{.SERVICE}}
+    vars:
+      REV: '{{.REV | default "-1"}}'
+    preconditions:
+      - sh: test -f alembic.ini
+        msg: "services/{{.SERVICE}}/alembic.ini not found — alembic isn't configured for this service."
+    cmds:
+      - uv run alembic downgrade {{.REV}}
+
+  migrate:revision:
+    desc: "Create a new alembic revision (SERVICE=iam MESSAGE='add x column')"
+    requires:
+      vars: [SERVICE, MESSAGE]
+    dir: services/{{.SERVICE}}
+    preconditions:
+      - sh: test -f alembic.ini
+        msg: "services/{{.SERVICE}}/alembic.ini not found — alembic isn't configured for this service."
+    cmds:
+      - uv run alembic revision --autogenerate -m "{{.MESSAGE}}"
+
+  migrate:current:
+    desc: "Show the current alembic revision applied to the database (SERVICE=iam)"
+    requires:
+      vars: [SERVICE]
+    dir: services/{{.SERVICE}}
+    preconditions:
+      - sh: test -f alembic.ini
+        msg: "services/{{.SERVICE}}/alembic.ini not found — alembic isn't configured for this service."
+    cmds:
+      - uv run alembic current
+
+  migrate:history:
+    desc: "Show full alembic migration history (SERVICE=iam)"
+    requires:
+      vars: [SERVICE]
+    dir: services/{{.SERVICE}}
+    preconditions:
+      - sh: test -f alembic.ini
+        msg: "services/{{.SERVICE}}/alembic.ini not found — alembic isn't configured for this service."
+    cmds:
+      - uv run alembic history --verbose
 
 
 # =========================

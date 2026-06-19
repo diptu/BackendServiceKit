@@ -1,7 +1,7 @@
 [project]
 name = "iam"
 version = "0.1.0"
-description = "Identity and Access Management service for BackendServiceKit"
+description = "Notification service for BackendServiceKit"
 readme = "README.md"
 requires-python = ">=3.11.9"
 
@@ -10,20 +10,6 @@ dependencies = [
     "alembic>=1.14.0",
     "asyncpg>=0.31.0",
     "fastapi[standard]>=0.136.3",
-    "greenlet>=3.5.1",
-    "httpx>=0.27.0",
-    "passlib[bcrypt]>=1.7.4",
-    "prometheus-client>=0.25.0",
-    "psycopg2-binary>=2.9.12",
-    "pwdlib[argon2]>=0.3.0",
-    "pydantic-settings>=2.14.1",
-    "pyjwt>=2.13.0",
-    "python-jose[cryptography]>=3.5.0",
-    "python-multipart>=0.0.32",
-    "redis>=8.0.0",
-    "sqlalchemy>=2.0.50",
-    "structlog>=24.1.0",
-    "types-python-jose>=3.5.0.20260408",
 ]
 
 # Development & testing environments (PEP 735)

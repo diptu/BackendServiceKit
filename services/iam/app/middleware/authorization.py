@@ -22,6 +22,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from app.core.config import settings
+from app.core.token_blacklist import is_token_revoked
 
 _NextCall = Callable[[Request], Awaitable[Response]]
 _BEARER_PREFIX = "bearer "
@@ -34,12 +35,12 @@ class JWTContextMiddleware(BaseHTTPMiddleware):
         header = request.headers.get("authorization", "")
         if header.lower().startswith(_BEARER_PREFIX):
             token = header[len(_BEARER_PREFIX) :]
-            request.state.jwt_claims = _decode_access_token(token)
+            request.state.jwt_claims = await _decode_access_token(token)
 
         return await call_next(request)
 
 
-def _decode_access_token(token: str) -> dict[str, Any] | None:
+async def _decode_access_token(token: str) -> dict[str, Any] | None:
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
@@ -48,4 +49,12 @@ def _decode_access_token(token: str) -> dict[str, Any] | None:
         return None
     if payload.get("sub") is None or payload.get("type") != "access":
         return None
+
+    # A blacklisted (logged-out) jti or a token issued before the account's
+    # last password change must not be cached here as "authenticated" —
+    # otherwise is_authenticated's cached-claims fast path would let it
+    # through unchecked.
+    if await is_token_revoked(payload):
+        return None
+
     return payload

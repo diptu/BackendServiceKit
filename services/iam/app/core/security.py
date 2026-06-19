@@ -8,6 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 
 from app.core.config import settings
+from app.core.token_blacklist import is_token_revoked
 
 # OAuth2 scheme — tokenUrl powers the Swagger UI "Authorize" modal form
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
@@ -33,16 +34,23 @@ async def is_authenticated(
     identical external behavior (same exceptions, same return shape) when
     the middleware isn't present, e.g. in unit tests that call this
     function directly or hit the app without going through the ASGI stack.
+    The revocation check below still runs even on the cached-claims path,
+    since the middleware's own decode happened earlier in the same request
+    and a malicious/expired blacklist entry could theoretically have been
+    written in between (also keeps both call sites independently correct).
     """
-    cached_claims: dict[str, Any] | None = getattr(request.state, "jwt_claims", None)
-    if cached_claims is not None:
-        return cached_claims
-
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials or token has expired.",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    cached_claims: dict[str, Any] | None = getattr(request.state, "jwt_claims", None)
+    if cached_claims is not None:
+        if await is_token_revoked(cached_claims):
+            raise credentials_exception
+        return cached_claims
+
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
@@ -53,10 +61,22 @@ async def is_authenticated(
         if sub is None or token_type != "access":  # noqa: S105
             raise credentials_exception
 
+        if await is_token_revoked(payload):
+            raise credentials_exception
+
         return payload
 
     except (jwt.InvalidTokenError, jwt.ExpiredSignatureError) as exc:
         raise credentials_exception from exc
+
+
+def password_matches_identifier(password: str, identifier: str) -> bool:
+    """
+    True if `password` is identical (case-insensitive) to `identifier`
+    (typically the account's own email) — a common, real weak-credential
+    pattern worth rejecting at registration/password-change time.
+    """
+    return password.strip().lower() == identifier.strip().lower()
 
 
 def hash_password(password: str) -> str:

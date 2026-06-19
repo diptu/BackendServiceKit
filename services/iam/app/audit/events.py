@@ -32,7 +32,7 @@ class AuditEventType(StrEnum):
 
     # Security (section 9)
     ACCOUNT_LOCKED = "security.account.locked"
-    RATE_LIMIT_EXCEEDED = "security.rate_limit.exceeded"  # noqa: S105
+    RATE_LIMIT_EXCEEDED = "security.rate_limit.exceeded"
 
 
 @dataclass(slots=True)

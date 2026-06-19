@@ -8,8 +8,15 @@ from fastapi import HTTPException, status
 from app.audit.events import AuditEventType
 from app.audit.logger import AuditLogger
 from app.core.config import settings
+from app.core.rate_limit import RateLimiter, get_rate_limiter
 from app.core.rbac import DEFAULT_ROLE
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import (
+    create_access_token,
+    hash_password,
+    password_matches_identifier,
+    verify_password,
+)
+from app.core.token_blacklist import TokenBlacklist, get_token_blacklist
 from app.models.role import Role
 from app.models.user import ACTIVE_REFRESH_TOKENS, User
 from app.repositories.role import RoleRepository
@@ -23,16 +30,29 @@ _CREDENTIALS_EXCEPTION = HTTPException(
 )
 
 
+def _as_aware_utc(value: datetime | None) -> datetime | None:
+    """SQLite returns naive datetimes from DateTime(timezone=True); Postgres
+    doesn't. Normalize before comparing against an aware `datetime.now(UTC)`
+    (same pattern as `PasswordResetToken.is_valid`)."""
+    if value is not None and value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value
+
+
 class AuthService:
     def __init__(
         self,
         user_repository: UserRepository,
         role_repository: RoleRepository,
         audit_logger: AuditLogger | None = None,
+        rate_limiter: RateLimiter | None = None,
+        token_blacklist: TokenBlacklist | None = None,
     ) -> None:
         self.user_repository = user_repository
         self.role_repository = role_repository
         self._audit = audit_logger
+        self._rate_limiter = rate_limiter or get_rate_limiter()
+        self._token_blacklist = token_blacklist or get_token_blacklist()
 
     # ------------------------------------------------------------------
     # Helpers
@@ -46,10 +66,17 @@ class AuthService:
         access_jti = str(uuid4())
         refresh_jti = str(uuid4())
 
+        # Float, not int(...) — truncating to whole seconds collides with
+        # `password_changed_at`'s sub-second precision when a token is
+        # issued in the same wall-clock second as a password change,
+        # producing false positives/negatives in the invalidate-before
+        # comparison in app.core.token_blacklist.is_token_revoked.
+        iat = now.timestamp()
         access_claims: dict[str, Any] = {
             "sub": str(user.id),
             "email": user.email,
             "jti": access_jti,
+            "iat": iat,
             "roles": roles,
             "permissions": permissions,
             "type": "access",
@@ -57,6 +84,7 @@ class AuthService:
         refresh_claims: dict[str, Any] = {
             "sub": str(user.id),
             "jti": refresh_jti,
+            "iat": iat,
             "roles": roles,
             "permissions": permissions,
             "type": "refresh",
@@ -87,6 +115,45 @@ class AuthService:
         permissions = list({p.slug for role in user.roles for p in role.permissions})
         return roles, permissions
 
+    async def _record_failed_login(
+        self,
+        user: User,
+        ip_address: str | None,
+        user_agent: str | None,
+    ) -> None:
+        """
+        Increment the failure counter and, once the threshold is crossed,
+        lock the account for an exponentially growing window (capped):
+        BASE * 2**(N - THRESHOLD), e.g. 30s/60s/120s/.../900s.
+        """
+        user.failed_login_count += 1
+        newly_locked = False
+        if user.failed_login_count >= settings.ACCOUNT_LOCKOUT_THRESHOLD:
+            lockout_seconds = min(
+                settings.ACCOUNT_LOCKOUT_BASE_SECONDS
+                * 2 ** (user.failed_login_count - settings.ACCOUNT_LOCKOUT_THRESHOLD),
+                settings.ACCOUNT_LOCKOUT_MAX_SECONDS,
+            )
+            user.locked_until = datetime.now(UTC) + timedelta(seconds=lockout_seconds)
+            newly_locked = True
+
+        await self.user_repository.save(user)
+
+        if newly_locked and self._audit:
+            self._audit.log(
+                AuditEventType.ACCOUNT_LOCKED,
+                email=user.email,
+                user_id=str(user.id),
+                ip_address=ip_address,
+                user_agent=user_agent,
+                metadata={
+                    "locked_until": user.locked_until.isoformat()
+                    if user.locked_until
+                    else None,
+                    "failed_login_count": user.failed_login_count,
+                },
+            )
+
     # ------------------------------------------------------------------
     # Issue tokens (shared by native login and OAuth callback)
     # ------------------------------------------------------------------
@@ -114,6 +181,12 @@ class AuthService:
 
     async def register(self, payload: UserCreate) -> User:
         email = payload.email.strip().lower()
+
+        if password_matches_identifier(payload.password, email):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must not match your email address.",
+            )
 
         existing_user = await self.user_repository.get_by_email(email)
         if existing_user:
@@ -162,7 +235,47 @@ class AuthService:
     ) -> TokenMatrixResponse:
         email = email.strip().lower()
 
+        rate_result = await self._rate_limiter.hit(
+            f"login:{email}",
+            limit=settings.LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
+            window_seconds=settings.LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+        )
+        if not rate_result.allowed:
+            if self._audit:
+                self._audit.log(
+                    AuditEventType.RATE_LIMIT_EXCEEDED,
+                    email=email,
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                    detail="Login rate limit exceeded.",
+                )
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many login attempts. Try again later.",
+                headers={"Retry-After": str(rate_result.retry_after_seconds)},
+            )
+
         user = await self.user_repository.get_by_email(email)
+
+        now = datetime.now(UTC)
+        if user:
+            user.locked_until = _as_aware_utc(user.locked_until)
+        if user and user.locked_until and user.locked_until > now:
+            if self._audit:
+                self._audit.log(
+                    AuditEventType.LOGIN_FAILURE,
+                    email=email,
+                    user_id=str(user.id),
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                    detail="Account locked.",
+                )
+            retry_after = max(int((user.locked_until - now).total_seconds()), 1)
+            raise HTTPException(
+                status_code=status.HTTP_423_LOCKED,
+                detail="Account temporarily locked. Try again later.",
+                headers={"Retry-After": str(retry_after)},
+            )
 
         # Short-circuit for OAuth-only users who have no password_hash set.
         if (
@@ -170,6 +283,8 @@ class AuthService:
             or not user.password_hash
             or not verify_password(password, user.password_hash)
         ):
+            if user:
+                await self._record_failed_login(user, ip_address, user_agent)
             if self._audit:
                 self._audit.log(
                     AuditEventType.LOGIN_FAILURE,
@@ -204,6 +319,8 @@ class AuthService:
             user, roles, permissions
         )
 
+        user.failed_login_count = 0
+        user.locked_until = None
         await self.user_repository.update_last_login(user)
 
         if self._audit:
@@ -306,6 +423,34 @@ class AuthService:
             user=UserOut.model_validate(user),
         )
 
+    async def _blacklist_access_token(self, access_token: str) -> None:
+        """
+        Best-effort: blacklist the caller's current access-token jti so it
+        stops working immediately rather than riding out its remaining
+        ~15-minute lifetime. Decoded defensively — an absent/garbled/
+        already-expired access token must never block the refresh-token
+        revocation that follows, which is logout's primary contract.
+        """
+        try:
+            payload = jwt.decode(
+                access_token,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM],
+                options={"verify_exp": False},
+            )
+        except jwt.InvalidTokenError:
+            return
+
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+        if not jti or not exp:
+            return
+
+        ttl_seconds = int(exp - datetime.now(UTC).timestamp())
+        if ttl_seconds <= 0:
+            return  # already expired — nothing to gain from blacklisting it
+        await self._token_blacklist.add_jti(jti, ttl_seconds)
+
     # ------------------------------------------------------------------
     # Logout
     # ------------------------------------------------------------------
@@ -314,9 +459,13 @@ class AuthService:
         self,
         refresh_token: str,
         *,
+        access_token: str | None = None,
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> None:
+        if access_token:
+            await self._blacklist_access_token(access_token)
+
         try:
             payload = jwt.decode(
                 refresh_token,

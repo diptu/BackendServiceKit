@@ -23,6 +23,12 @@ from pydantic import BaseModel, ConfigDict, Field
 class RoleBase(BaseModel):
     """
     Shared role fields.
+
+    NOTE: `slug` is intentionally unconstrained in format here — `RoleOut`
+    (the API *response* schema) extends this base, and system-seeded roles
+    (e.g. "org_owner", "super_admin", see app.core.rbac) use underscores.
+    The hyphen-only format constraint for *new* roles lives on
+    `RoleCreate`/`RoleUpdate` instead, where it only governs input.
     """
 
     name: str = Field(..., min_length=1, max_length=255)
@@ -44,6 +50,7 @@ class RoleCreate(RoleBase):
     permission_slugs: existing Permission slugs to attach at creation time.
     """
 
+    slug: str = Field(..., min_length=1, max_length=100, pattern=r"^[a-z0-9-]+$")
     organization_id: uuid.UUID | None = Field(default=None)
     is_system: bool = Field(default=False)
     permission_slugs: list[str] = Field(default_factory=list)
@@ -62,7 +69,7 @@ class RoleUpdate(BaseModel):
     """
 
     name: str | None = Field(default=None, max_length=255)
-    slug: str | None = Field(default=None, max_length=100)
+    slug: str | None = Field(default=None, max_length=100, pattern=r"^[a-z0-9-]+$")
     description: str | None = Field(default=None, max_length=500)
 
     is_system: bool | None = None

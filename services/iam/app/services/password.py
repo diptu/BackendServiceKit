@@ -1,4 +1,5 @@
 import hashlib
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -6,8 +7,14 @@ from fastapi import HTTPException, status
 from app.audit.events import AuditEventType
 from app.audit.logger import AuditLogger
 from app.core.config import settings
-from app.core.security import hash_password, verify_password
+from app.core.security import (
+    hash_password,
+    password_matches_identifier,
+    verify_password,
+)
+from app.core.token_blacklist import TokenBlacklist, get_token_blacklist
 from app.models.password_reset import PasswordResetToken
+from app.models.user import User
 from app.repositories.password_reset import PasswordResetTokenRepository
 from app.repositories.user import UserRepository
 from app.services.email import EmailService
@@ -20,11 +27,29 @@ class PasswordService:
         reset_token_repository: PasswordResetTokenRepository,
         email_service: EmailService,
         audit_logger: AuditLogger | None = None,
+        token_blacklist: TokenBlacklist | None = None,
     ) -> None:
         self.user_repository = user_repository
         self.reset_token_repository = reset_token_repository
         self.email_service = email_service
         self._audit = audit_logger
+        self._token_blacklist = token_blacklist or get_token_blacklist()
+
+    async def _invalidate_prior_access_tokens(self, user: User) -> None:
+        """Mark every access token issued before now as invalid (see
+        app.core.token_blacklist for why this is a timestamp comparison
+        rather than an enumerated jti blacklist). Uses full float
+        precision (matching the access token's `iat` claim, see
+        AuthService._build_token_pair) rather than whole seconds — integer
+        seconds collide too easily between "token just issued" and
+        "password just changed" in rapid succession."""
+        changed_at = datetime.now(UTC)
+        user.password_changed_at = changed_at
+        await self._token_blacklist.set_invalidate_before(
+            str(user.id),
+            timestamp=changed_at.timestamp(),
+            ttl_seconds=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        )
 
     # ------------------------------------------------------------------
     # Change password (authenticated)
@@ -55,7 +80,14 @@ class PasswordService:
                 detail="Current password is incorrect.",
             )
 
+        if password_matches_identifier(new_password, user.email):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must not match your email address.",
+            )
+
         user.password_hash = hash_password(new_password)
+        await self._invalidate_prior_access_tokens(user)
         await self.user_repository.save(user)
 
         if self._audit:
@@ -136,7 +168,14 @@ class PasswordService:
                 detail="Invalid or expired reset token.",
             )
 
+        if password_matches_identifier(new_password, user.email):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must not match your email address.",
+            )
+
         user.password_hash = hash_password(new_password)
+        await self._invalidate_prior_access_tokens(user)
         await self.user_repository.save(user)
 
         if self._audit:
