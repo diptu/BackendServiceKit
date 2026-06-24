@@ -1,0 +1,10 @@
+[project]
+name = "iam"
+version = "0.1.0"
+description = "IAM Microservice"
+readme = "README.md"
+requires-python = ">=3.11.9"
+dependencies = [
+    "fastapi[standard]>=0.138.0",
+    "uvicorn>=0.49.0",
+]
