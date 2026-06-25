@@ -15,9 +15,11 @@ jobs:
       packages: write
 
     strategy:
+      fail-fast: false
       matrix:
-        # service: [iam, payment, search, notification, analytics]
-        service: [iam]
+        # Add your services here as you build them out.
+        # Format: folder_name must match the actual directory casing.
+        service: [IAM]
 
     steps:
       - name: Checkout code
@@ -30,24 +32,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step to dynamically construct a lowercase image prefix safely
-      - name: Set Lowercase Image Prefix
+      # Construct valid lowercase strings for the registry tags
+      - name: Set Lowercase Image Names
         run: |
-          IMAGE_PREFIX_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          echo "IMAGE_PREFIX=${IMAGE_PREFIX_LOWER}" >> $GITHUB_ENV
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          SERVICE_LOWER=$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')
+          
+          echo "IMAGE_PREFIX=${REPO_LOWER}" >> $GITHUB_ENV
+          echo "SERVICE_NAME_LOWER=${SERVICE_LOWER}" >> $GITHUB_ENV
 
       - name: Build & Push
         run: |
-          IMAGE_TAG_LATEST="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest"
-          IMAGE_TAG_SHA="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.sha }}"
+          # Use the normalized lowercase service name for the image tag
+          IMAGE_TAG_LATEST="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ env.SERVICE_NAME_LOWER }}:latest"
+          IMAGE_TAG_SHA="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ env.SERVICE_NAME_LOWER }}:${{ github.sha }}"
 
+          # Build from the specific service directory context where its Dockerfile lives
           docker build \
-            -f Dockerfile.service \
-            --build-arg SERVICE_NAME=${{ matrix.service }} \
-            --build-arg SERVICE_PATH=services/${{ matrix.service }} \
+            -f "${{ matrix.service }}/Dockerfile" \
             -t "$IMAGE_TAG_LATEST" \
             -t "$IMAGE_TAG_SHA" \
-            .
+            ./${{ matrix.service }}
 
           docker push "$IMAGE_TAG_LATEST"
           docker push "$IMAGE_TAG_SHA"
