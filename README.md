@@ -141,7 +141,7 @@ backend-service-kit/
 62. Push Notification Service
 63. Notification Service
 64. Communication Preference Service
-65. Template Management Service
+65. Template Management Service <------
 66. Audit Logging Service
 67. Compliance Logging Service
 68. Security Event Logging Service
