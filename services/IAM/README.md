@@ -95,3 +95,23 @@ Entitlements
 GET    /entitlements
 POST   /entitlements
 ```
+## Architecture
+```text
+
+                    ┌────────────────────┐
+                    │    User Service     │
+                    │  (Source of Truth)  │
+                    └─────────┬──────────┘
+                              │
+                     UserCreated
+                     UserUpdated
+                     UserDeleted
+                              │
+                      RabbitMQ / Kafka
+                              │
+                              ▼
+                    ┌────────────────────┐
+                    │     IAM Service     │
+                    │   User Projection   │
+                    └────────────────────┘
+   ```
