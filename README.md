@@ -121,12 +121,12 @@ backend-service-kit/
 42. Subscription Management Service
 43. Plan Management Service
 44. Feature Management Service
-45. Feature Flag Service   <------
+45. Feature Flag Service  
 46. Usage Metering Service
 47. Quota Management Service
 48. Billing Service
 49. Invoicing Service
-50. Payment Service
+50. Payment Service  <------
 51. Tax Management Service
 52. Customer Account Service
 53. Customer Portal Service
@@ -136,7 +136,7 @@ backend-service-kit/
 57. Domain Management Service
 58. Custom Domain Verification Service
 59. DNS Automation Service
-60. Email Service
+60. Email Service  <------
 61. SMS Service
 62. Push Notification Service
 63. Notification Service
