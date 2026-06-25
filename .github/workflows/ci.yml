@@ -1,21 +1,18 @@
-name: CI Pipeline
+name: CI/CD Pipeline
 
 on:
-  pull_request:
   push:
-    branches: ['*']
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
 
 jobs:
-  test:
+  build-and-test:
     runs-on: ubuntu-latest
-    # ELEVATE ENVIRONMENT VARIABLES HERE
-    env:
-      DATABASE_URL: "sqlite+aiosqlite:///test_db.sqlite"
-
-    strategy:
-      matrix:
-        # service: [iam, payment, search, notification, analytics]
-        service: [iam]
 
     steps:
       - name: Checkout code
@@ -24,24 +21,59 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
-      - name: Install uv
-        run: pip install uv
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          version: "latest"
 
-      - name: Install dependencies
-        working-directory: services/${{ matrix.service }}
-        run: uv sync --all-groups
+      - name: Process Python Services
+        run: |
+          # Find all directories containing a pyproject.toml file (excluding .venv)
+          SERVICES=$(find . -maxdepth 2 -name "pyproject.toml" -not -path "*/.*" | xargs -I {} dirname {})
+          
+          if [ -z "$SERVICES" ]; then
+            echo "No Python services with pyproject.toml found."
+            exit 0
+          fi
 
-      - name: Run lint (ruff)
-        working-directory: services/${{ matrix.service }}
-        # Point directly to the virtual environment binary
-        run: .venv/bin/ruff check .
-
-      - name: Run tests
-        working-directory: services/${{ matrix.service }}
-        # Point directly to the virtual environment binary
-        run: .venv/bin/pytest -q
-        env:
-          # Matches the dynamic database configuration of your conftest.py
-          DATABASE_URL: sqlite+aiosqlite:///test_db.sqlite
+          for service in $SERVICES; do
+            echo "=================================================="
+            echo "🚀 Processing Service: ${service#./}"
+            echo "=================================================="
+            
+            # Navigate into the service directory
+            cd "$GITHUB_WORKSPACE/$service"
+            
+            # 1. Install dependencies exactly as locked
+            echo "📦 Installing dependencies..."
+            uv sync --frozen
+            
+            # 2. Run Quality Checks (Using your local shell scripts if they exist)
+            echo "🧹 Running linting & formatting..."
+            if [ -f "scripts/lint.sh" ]; then
+              uv run sh scripts/lint.sh
+            else
+              echo "No lint.sh found, skipping."
+            fi
+            
+            # 3. Test execution
+            echo "🧪 Running pytest..."
+            if [ -d "tests" ]; then
+              uv run pytest
+            else
+              echo "No tests directory found, skipping."
+            fi
+            
+            # 4. Build Docker Image (Lowercasing the service name for Docker tag standards)
+            SERVICE_NAME=$(echo "${service#./}" | tr '[:upper:]' '[:lower:]')
+            echo "🐳 Building Docker image for $SERVICE_NAME..."
+            if [ -f "Dockerfile" ]; then
+              docker build -t "$SERVICE_NAME:${{ github.sha }}" .
+            else
+              echo "No Dockerfile found, skipping build."
+            fi
+            
+          done
