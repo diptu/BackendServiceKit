@@ -1,8 +1,16 @@
 from typing import Any
 
+from app.core.config import Settings
 from fastapi import FastAPI
 
-app = FastAPI()
+settings = Settings()
+
+app = FastAPI(
+
+    docs_url=None if settings.environment == "production" else "/docs",
+    redoc_url=None if settings.environment == "production" else "/redoc",
+    openapi_url=None if settings.environment == "production" else "/openapi.json"
+)
 
 
 @app.get("/")
