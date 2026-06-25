@@ -98,13 +98,13 @@ backend-service-kit/
 19. Tenant Management Service
 20. Tenant Provisioning Service
 21. Tenant Lifecycle Management Service
-22. Tenant Isolation Service          <------
+22. Tenant Isolation Service          
 23. Organization Management Service
 24. Workspace Management Service
 25. Team Management Service
 26. Group Management Service
 27. Membership Management Service
-28. Invitation Management Service
+28. Invitation Management Service <------
 29. Role Management Service
 30. Permission Management Service
 31. Resource Registry Service
