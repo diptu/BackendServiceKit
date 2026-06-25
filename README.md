@@ -104,7 +104,7 @@ backend-service-kit/
 25. Team Management Service
 26. Group Management Service
 27. Membership Management Service
-28. Invitation Management Service <------
+28. Invitation Management Service 
 29. Role Management Service
 30. Permission Management Service
 31. Resource Registry Service
@@ -121,7 +121,7 @@ backend-service-kit/
 42. Subscription Management Service
 43. Plan Management Service
 44. Feature Management Service
-45. Feature Flag Service
+45. Feature Flag Service   <------
 46. Usage Metering Service
 47. Quota Management Service
 48. Billing Service
