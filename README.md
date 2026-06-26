@@ -126,7 +126,7 @@ backend-service-kit/
 47. Quota Management Service
 48. Billing Service
 49. Invoicing Service
-50. Payment Service  <------
+50. Payment Service 
 51. Tax Management Service
 52. Customer Account Service
 53. Customer Portal Service
@@ -153,7 +153,7 @@ backend-service-kit/
 74. Metrics Collection Service
 75. Alerting Service
 76. Observability Service
-77. Health Check Service
+77. Health Check Service.  <------
 78. Incident Management Service
 79. Security Center Service
 80. Threat Detection Service
