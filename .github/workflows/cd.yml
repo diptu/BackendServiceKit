@@ -18,8 +18,8 @@ jobs:
       fail-fast: false
       matrix:
         # Add your services here as you build them out.
-        # Format: folder_name must match the actual directory casing.
-        service: [IAM]
+        # Format: folder_name must match the actual directory casing under services/.
+        service: [IAM, TenantManagement]
 
     steps:
       - name: Checkout code
@@ -49,10 +49,10 @@ jobs:
 
           # Build from the specific service directory context where its Dockerfile lives
           docker build \
-            -f "${{ matrix.service }}/Dockerfile" \
+            -f "services/${{ matrix.service }}/Dockerfile" \
             -t "$IMAGE_TAG_LATEST" \
             -t "$IMAGE_TAG_SHA" \
-            ./${{ matrix.service }}
+            ./services/${{ matrix.service }}
 
           docker push "$IMAGE_TAG_LATEST"
           docker push "$IMAGE_TAG_SHA"
