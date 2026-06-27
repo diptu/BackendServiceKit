@@ -54,3 +54,22 @@ class TenantOwnerRequiredError(Exception):
     def __init__(self, tenant_id: UUID) -> None:
         super().__init__(f"Tenant {tenant_id} must have at least one active owner.")
         self.tenant_id = tenant_id
+
+
+class TenantContactConflictError(Exception):
+    """Raised when a user is already an active contact on the tenant."""
+
+    def __init__(self, tenant_id: UUID, user_id: UUID) -> None:
+        super().__init__(
+            f"User {user_id} is already an active owner/admin of tenant {tenant_id}."
+        )
+        self.tenant_id = tenant_id
+        self.user_id = user_id
+
+
+class TenantContactNotFoundError(Exception):
+    """Raised when a contact record cannot be found."""
+
+    def __init__(self, contact_id: UUID) -> None:
+        super().__init__(f"Contact {contact_id} not found.")
+        self.contact_id = contact_id

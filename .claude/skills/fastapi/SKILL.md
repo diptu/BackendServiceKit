@@ -3,6 +3,7 @@
 A practical guide to building scalable, secure, high-performance, and production-ready FastAPI applications.
 
 ---
+- **Execution**: Run `/fastapi <service_name>`.
 ## 0: Organize the Project as Independent Services
 
 As the application grows, organize it into **domain-oriented services**. Each service owns its APIs, business logic, models, repositories, schemas, tests, documentation, and TODOs.

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.openapi import (
@@ -14,30 +14,34 @@ from app.core.openapi import (
     RESPONSES_WRITE,
     R_401,
     R_403,
-    R_404,
 )
+from app.domain.enums import TenantStatus
 from app.infrastructure.database.dependencies import get_db
 from app.schemas.tenant import (
     AddOwnerRequest,
     CreateTenantRequest,
     TenantListResponse,
     TenantMetadataResponse,
+    TenantMetadataEntry,
     TenantOwnerListResponse,
     TenantOwnerResponse,
     TenantResponse,
     TenantSettingsResponse,
+    TenantSummary,
     TransitionRequest,
     UpdateTenantMetadataRequest,
     UpdateTenantRequest,
     UpdateTenantSettingsRequest,
 )
+from app.services import (
+    TenantMetadataService,
+    TenantOwnerService,
+    TenantService,
+    TenantSettingsService,
+)
 
 router = APIRouter(prefix="/tenants", tags=["Tenants"])
 
-_TODO = HTTPException(
-    status_code=status.HTTP_501_NOT_IMPLEMENTED,
-    detail="Not implemented yet.",
-)
 
 # ---------------------------------------------------------------------------
 # Core CRUD
@@ -66,7 +70,8 @@ async def create_tenant(
     body: CreateTenantRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TenantResponse:
-    raise _TODO
+    tenant = await TenantService(db).create(body)
+    return TenantResponse.model_validate(tenant)
 
 
 @router.get(
@@ -94,18 +99,38 @@ async def list_tenants(
         le=100,
         description="Maximum number of results to return (1–100).",
     ),
-    status_filter: str | None = Query(
+    status_filter: TenantStatus | None = Query(
         default=None,
         alias="status",
-        description="Filter by tenant status (e.g. `active`, `suspended`).",
+        description=(
+            "Filter by tenant lifecycle state. "
+            "One of: `draft`, `provisioning`, `active`, `suspended`, `archived`, `deleted`."
+        ),
     ),
     region: str | None = Query(
         default=None,
         description="Filter by deployment region (e.g. `us-east-1`).",
     ),
+    search: str | None = Query(
+        default=None,
+        max_length=100,
+        description="Substring match against tenant name (slug) or display name.",
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> TenantListResponse:
-    raise _TODO
+    result = await TenantService(db).list(
+        status_filter=status_filter,
+        region=region,
+        search=search,
+        cursor=cursor,
+        limit=limit,
+    )
+    return TenantListResponse(
+        items=[TenantSummary.model_validate(t) for t in result.items],
+        total=result.total,
+        cursor=result.next_cursor,
+        has_more=result.has_more,
+    )
 
 
 @router.get(
@@ -119,7 +144,8 @@ async def get_tenant(
     tenant_id: UUID,
     db: AsyncSession = Depends(get_db),
 ) -> TenantResponse:
-    raise _TODO
+    tenant = await TenantService(db).get(tenant_id)
+    return TenantResponse.model_validate(tenant)
 
 
 @router.patch(
@@ -144,7 +170,8 @@ async def update_tenant(
     body: UpdateTenantRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TenantResponse:
-    raise _TODO
+    tenant = await TenantService(db).update(tenant_id, body)
+    return TenantResponse.model_validate(tenant)
 
 
 @router.delete(
@@ -176,7 +203,7 @@ async def delete_tenant(
     tenant_id: UUID,
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    raise _TODO
+    await TenantService(db).delete(tenant_id)
 
 
 # ---------------------------------------------------------------------------
@@ -208,7 +235,8 @@ async def activate_tenant(
     body: TransitionRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TenantResponse:
-    raise _TODO
+    tenant = await TenantService(db).activate(tenant_id, body.reason)
+    return TenantResponse.model_validate(tenant)
 
 
 @router.post(
@@ -236,7 +264,8 @@ async def suspend_tenant(
     body: TransitionRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TenantResponse:
-    raise _TODO
+    tenant = await TenantService(db).suspend(tenant_id, body.reason)
+    return TenantResponse.model_validate(tenant)
 
 
 @router.post(
@@ -263,7 +292,8 @@ async def archive_tenant(
     body: TransitionRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TenantResponse:
-    raise _TODO
+    tenant = await TenantService(db).archive(tenant_id, body.reason)
+    return TenantResponse.model_validate(tenant)
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +313,8 @@ async def get_settings(
     tenant_id: UUID,
     db: AsyncSession = Depends(get_db),
 ) -> TenantSettingsResponse:
-    raise _TODO
+    settings = await TenantSettingsService(db).get(tenant_id)
+    return TenantSettingsResponse.model_validate(settings)
 
 
 @router.patch(
@@ -307,7 +338,8 @@ async def update_settings(
     body: UpdateTenantSettingsRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TenantSettingsResponse:
-    raise _TODO
+    settings = await TenantSettingsService(db).update(tenant_id, body)
+    return TenantSettingsResponse.model_validate(settings)
 
 
 # ---------------------------------------------------------------------------
@@ -327,7 +359,9 @@ async def list_owners(
     tenant_id: UUID,
     db: AsyncSession = Depends(get_db),
 ) -> TenantOwnerListResponse:
-    raise _TODO
+    contacts = await TenantOwnerService(db).list_owners(tenant_id)
+    items = [TenantOwnerResponse.model_validate(c) for c in contacts]
+    return TenantOwnerListResponse(items=items, total=len(items))
 
 
 @router.post(
@@ -353,7 +387,8 @@ async def add_owner(
     body: AddOwnerRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TenantOwnerResponse:
-    raise _TODO
+    contact = await TenantOwnerService(db).add_owner(tenant_id, body)
+    return TenantOwnerResponse.model_validate(contact)
 
 
 @router.delete(
@@ -384,7 +419,7 @@ async def remove_owner(
     owner_id: UUID,
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    raise _TODO
+    await TenantOwnerService(db).remove_owner(tenant_id, owner_id)
 
 
 # ---------------------------------------------------------------------------
@@ -404,7 +439,11 @@ async def get_metadata(
     tenant_id: UUID,
     db: AsyncSession = Depends(get_db),
 ) -> TenantMetadataResponse:
-    raise _TODO
+    entries = await TenantMetadataService(db).get_metadata(tenant_id)
+    return TenantMetadataResponse(
+        tenant_id=tenant_id,
+        entries=[TenantMetadataEntry.model_validate(e) for e in entries],
+    )
 
 
 @router.patch(
@@ -431,4 +470,8 @@ async def update_metadata(
     body: UpdateTenantMetadataRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TenantMetadataResponse:
-    raise _TODO
+    entries = await TenantMetadataService(db).update_metadata(tenant_id, body)
+    return TenantMetadataResponse(
+        tenant_id=tenant_id,
+        entries=[TenantMetadataEntry.model_validate(e) for e in entries],
+    )
