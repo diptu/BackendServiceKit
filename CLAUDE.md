@@ -155,3 +155,25 @@ cd services/IAM && bash scripts/bootstrap.sh  # First-time setup for IAM (venv, 
 ## Implementation Order
 
 Active: IAM (Phase 1). Next planned (per `Implementation-order.md`): Tenant Management → Organization → User Management → Group → Membership → Authentication → Session → MFA → Roles → Permissions → Resources → Attributes → ABAC → Authorization → Audit Logging → Observability.
+
+# TenantManagement State Machine
+```text
+draft 
+   |
+   v
+provisioning 
+   |
+   v
+Pending
+   |
+   v
+Active
+   |
+   +----> Suspended ---->  active (for reactivation)
+   |
+   +----> Locked
+   |
+   +----> Archived
+   |
+   +----> Deleted
+```
