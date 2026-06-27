@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
 from app.core.constants import (
     DEFAULT_CURRENCY,
@@ -20,6 +20,7 @@ from app.core.constants import (
     TENANT_SLUG_PATTERN,
 )
 from app.domain.enums import OwnerRole, TenantStatus
+from app.schemas.base import AppBaseModel
 
 # Shared example values used across multiple schemas
 _EX_TENANT_ID = "550e8400-e29b-41d4-a716-446655440000"
@@ -32,7 +33,7 @@ _EX_SETTINGS_ID = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
 # ---------------------------------------------------------------------------
 
 
-class CreateTenantRequest(BaseModel):
+class CreateTenantRequest(AppBaseModel):
     """Request body for creating a new tenant."""
 
     name: str = Field(
@@ -88,6 +89,8 @@ class CreateTenantRequest(BaseModel):
     )
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        use_enum_values=True,
         json_schema_extra={
             "example": {
                 "name": "alphabet-corp",
@@ -99,11 +102,11 @@ class CreateTenantRequest(BaseModel):
                 "locale": "en-US",
                 "currency": "USD",
             }
-        }
+        },
     )
 
 
-class UpdateTenantRequest(BaseModel):
+class UpdateTenantRequest(AppBaseModel):
     """Request body for partially updating a tenant. All fields are optional."""
 
     display_name: str | None = Field(
@@ -146,6 +149,8 @@ class UpdateTenantRequest(BaseModel):
     )
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        use_enum_values=True,
         json_schema_extra={
             "example": {
                 "display_name": "Alphabet Corp (Updated)",
@@ -153,11 +158,11 @@ class UpdateTenantRequest(BaseModel):
                 "locale": "en-GB",
                 "currency": "GBP",
             }
-        }
+        },
     )
 
 
-class TenantResponse(BaseModel):
+class TenantResponse(AppBaseModel):
     """Full tenant representation returned on create / get / update."""
 
     id: UUID
@@ -175,6 +180,8 @@ class TenantResponse(BaseModel):
     deleted_at: datetime | None
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        use_enum_values=True,
         from_attributes=True,
         json_schema_extra={
             "example": {
@@ -196,7 +203,7 @@ class TenantResponse(BaseModel):
     )
 
 
-class TenantSummary(BaseModel):
+class TenantSummary(AppBaseModel):
     """Lightweight tenant representation used in list responses."""
 
     id: UUID
@@ -207,6 +214,8 @@ class TenantSummary(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        use_enum_values=True,
         from_attributes=True,
         json_schema_extra={
             "example": {
@@ -221,7 +230,7 @@ class TenantSummary(BaseModel):
     )
 
 
-class TenantListResponse(BaseModel):
+class TenantListResponse(AppBaseModel):
     """Paginated list of tenants."""
 
     items: list[TenantSummary]
@@ -234,6 +243,8 @@ class TenantListResponse(BaseModel):
     has_more: bool = Field(..., description="Whether additional pages are available.")
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        use_enum_values=True,
         json_schema_extra={
             "example": {
                 "items": [
@@ -250,7 +261,7 @@ class TenantListResponse(BaseModel):
                 "cursor": None,
                 "has_more": False,
             }
-        }
+        },
     )
 
 
@@ -259,7 +270,7 @@ class TenantListResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class TransitionRequest(BaseModel):
+class TransitionRequest(AppBaseModel):
     """Optional body for lifecycle transition endpoints."""
 
     reason: str | None = Field(
@@ -270,9 +281,11 @@ class TransitionRequest(BaseModel):
     )
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        use_enum_values=True,
         json_schema_extra={
             "example": {"reason": "Non-payment — subscription expired 2026-06-01."}
-        }
+        },
     )
 
 
@@ -281,7 +294,7 @@ class TransitionRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class UpdateTenantSettingsRequest(BaseModel):
+class UpdateTenantSettingsRequest(AppBaseModel):
     """Partial update of tenant configuration. All fields are optional."""
 
     timezone: str | None = Field(
@@ -335,6 +348,8 @@ class UpdateTenantSettingsRequest(BaseModel):
     )
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        use_enum_values=True,
         json_schema_extra={
             "example": {
                 "timezone": "America/Chicago",
@@ -342,11 +357,11 @@ class UpdateTenantSettingsRequest(BaseModel):
                 "session_timeout_minutes": 30,
                 "default_theme": "dark",
             }
-        }
+        },
     )
 
 
-class TenantSettingsResponse(BaseModel):
+class TenantSettingsResponse(AppBaseModel):
     """Full tenant settings record."""
 
     id: UUID
@@ -362,6 +377,8 @@ class TenantSettingsResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        use_enum_values=True,
         from_attributes=True,
         json_schema_extra={
             "example": {
@@ -381,7 +398,7 @@ class TenantSettingsResponse(BaseModel):
     )
 
 
-class TenantSettingsDefaults(BaseModel):
+class TenantSettingsDefaults(AppBaseModel):
     timezone: str = DEFAULT_TIMEZONE
     locale: str = DEFAULT_LOCALE
     language: str = DEFAULT_LANGUAGE
@@ -397,7 +414,7 @@ class TenantSettingsDefaults(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class AddOwnerRequest(BaseModel):
+class AddOwnerRequest(AppBaseModel):
     """Request body to add an owner or admin to a tenant."""
 
     user_id: UUID = Field(
@@ -412,11 +429,13 @@ class AddOwnerRequest(BaseModel):
     )
 
     model_config = ConfigDict(
-        json_schema_extra={"example": {"user_id": _EX_USER_ID, "role": "owner"}}
+        populate_by_name=True,
+        use_enum_values=True,
+        json_schema_extra={"example": {"user_id": _EX_USER_ID, "role": "owner"}},
     )
 
 
-class TenantOwnerResponse(BaseModel):
+class TenantOwnerResponse(AppBaseModel):
     """Single tenant owner record."""
 
     id: UUID
@@ -426,6 +445,8 @@ class TenantOwnerResponse(BaseModel):
     added_at: datetime
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        use_enum_values=True,
         from_attributes=True,
         json_schema_extra={
             "example": {
@@ -439,13 +460,15 @@ class TenantOwnerResponse(BaseModel):
     )
 
 
-class TenantOwnerListResponse(BaseModel):
+class TenantOwnerListResponse(AppBaseModel):
     """List of tenant owner records."""
 
     items: list[TenantOwnerResponse]
     total: int = Field(..., description="Total number of active owners.", examples=[1])
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        use_enum_values=True,
         json_schema_extra={
             "example": {
                 "items": [
@@ -459,7 +482,7 @@ class TenantOwnerListResponse(BaseModel):
                 ],
                 "total": 1,
             }
-        }
+        },
     )
 
 
@@ -468,22 +491,28 @@ class TenantOwnerListResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class TenantMetadataEntry(BaseModel):
+class TenantMetadataEntry(AppBaseModel):
     """A single key-value metadata entry."""
 
     key: str = Field(..., examples=["industry"])
     value: str = Field(..., examples=["FinTech"])
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        populate_by_name=True,
+        use_enum_values=True,
+        from_attributes=True,
+    )
 
 
-class TenantMetadataResponse(BaseModel):
+class TenantMetadataResponse(AppBaseModel):
     """All metadata entries for a tenant."""
 
     tenant_id: UUID
     entries: list[TenantMetadataEntry]
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        use_enum_values=True,
         json_schema_extra={
             "example": {
                 "tenant_id": _EX_TENANT_ID,
@@ -493,11 +522,11 @@ class TenantMetadataResponse(BaseModel):
                     {"key": "customer_tier", "value": "gold"},
                 ],
             }
-        }
+        },
     )
 
 
-class UpdateTenantMetadataRequest(BaseModel):
+class UpdateTenantMetadataRequest(AppBaseModel):
     """
     Upsert metadata key-value pairs.
 
@@ -512,6 +541,8 @@ class UpdateTenantMetadataRequest(BaseModel):
     )
 
     model_config = ConfigDict(
+        populate_by_name=True,
+        use_enum_values=True,
         json_schema_extra={
             "example": {
                 "metadata": {
@@ -521,5 +552,5 @@ class UpdateTenantMetadataRequest(BaseModel):
                     "support_plan": "premium",
                 }
             }
-        }
+        },
     )

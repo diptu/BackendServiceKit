@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from app.core.constants import DEFAULT_PAGINATION_LIMIT, MAX_PAGINATION_LIMIT
+from app.schemas.base import AppBaseModel
 
 
-class PaginationParams(BaseModel):
+class PaginationParams(AppBaseModel):
     cursor: str | None = None
     limit: int = Field(
         default=DEFAULT_PAGINATION_LIMIT,
@@ -16,6 +17,6 @@ class PaginationParams(BaseModel):
     )
 
 
-class ErrorResponse(BaseModel):
+class ErrorResponse(AppBaseModel):
     detail: str
     error_code: str | None = None

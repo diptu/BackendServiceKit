@@ -2,12 +2,31 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
 from app.core.config import settings
+from app.core.logging import configure_logging
 from app.core.openapi import TAGS_METADATA
+from app.domain.exceptions import (
+    InvalidTenantTransitionError,
+    TenantContactConflictError,
+    TenantContactNotFoundError,
+    TenantLockedError,
+    TenantNameConflictError,
+    TenantNotFoundError,
+    TenantOwnerRequiredError,
+    TenantSlugConflictError,
+)
+from app.infrastructure.database.engine import engine
+
+logger = logging.getLogger(__name__)
 
 _DESCRIPTION = """\
 ## Overview
@@ -93,6 +112,35 @@ Breaking changes will introduce a new version prefix. The previous version remai
 supported for a minimum of **6 months** after deprecation notice.
 """
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Manage service-level resources for the duration of the process.
+
+    Startup:
+        - Configures structured JSON logging.
+        - Logs a startup event with service metadata.
+
+    Shutdown:
+        - Disposes the SQLAlchemy async engine (drains the connection pool).
+        - Logs a shutdown event.
+    """
+    configure_logging(debug=settings.debug)
+    logger.info(
+        "Service starting",
+        extra={
+            "service": settings.app_name,
+            "version": settings.app_version,
+            "environment": settings.environment,
+        },
+    )
+
+    yield
+
+    await engine.dispose()
+    logger.info("Service shutdown complete", extra={"service": settings.app_name})
+
+
 _docs_url = None if settings.environment == "production" else "/docs"
 _redoc_url = None if settings.environment == "production" else "/redoc"
 _openapi_url = None if settings.environment == "production" else "/openapi.json"
@@ -112,6 +160,7 @@ app = FastAPI(
     docs_url=_docs_url,
     redoc_url=_redoc_url,
     openapi_url=_openapi_url,
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -123,3 +172,48 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+
+# ---------------------------------------------------------------------------
+# Domain exception → HTTP response handlers
+# ---------------------------------------------------------------------------
+
+
+@app.exception_handler(TenantNotFoundError)
+async def _tenant_not_found(_: Request, exc: TenantNotFoundError) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(TenantNameConflictError)
+async def _tenant_name_conflict(_: Request, exc: TenantNameConflictError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(TenantSlugConflictError)
+async def _tenant_slug_conflict(_: Request, exc: TenantSlugConflictError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(InvalidTenantTransitionError)
+async def _invalid_transition(_: Request, exc: InvalidTenantTransitionError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(TenantLockedError)
+async def _tenant_locked(_: Request, exc: TenantLockedError) -> JSONResponse:
+    return JSONResponse(status_code=423, content={"detail": str(exc)})
+
+
+@app.exception_handler(TenantOwnerRequiredError)
+async def _owner_required(_: Request, exc: TenantOwnerRequiredError) -> JSONResponse:
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
+@app.exception_handler(TenantContactConflictError)
+async def _contact_conflict(_: Request, exc: TenantContactConflictError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(TenantContactNotFoundError)
+async def _contact_not_found(_: Request, exc: TenantContactNotFoundError) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
