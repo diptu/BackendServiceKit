@@ -9,7 +9,7 @@ from app.schemas.base import AppBaseModel
 
 
 class PaginationParams(AppBaseModel):
-    cursor: str | None = None
+    next_cursor: str | None = None
     limit: int = Field(
         default=DEFAULT_PAGINATION_LIMIT,
         ge=1,

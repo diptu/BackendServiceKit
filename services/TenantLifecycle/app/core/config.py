@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     otlp_endpoint: str = "http://localhost:4317"
 
     # Downstream services
-    tenant_management_base_url: str = "http://localhost:8001"
+    tenant_management_base_url: str = "http://localhost:8000"
     tenant_management_timeout: float = 5.0
 
     # Health Checks

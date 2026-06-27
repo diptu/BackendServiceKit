@@ -235,7 +235,7 @@ class TenantListResponse(AppBaseModel):
 
     items: list[TenantSummary]
     total: int = Field(..., description="Total number of tenants matching the filter.", examples=[42])
-    cursor: str | None = Field(
+    next_cursor: str | None = Field(
         default=None,
         description="Opaque cursor for the next page. `null` when no more pages.",
         examples=["eyJpZCI6IjU1MGU4NDAwIn0="],
@@ -258,7 +258,7 @@ class TenantListResponse(AppBaseModel):
                     }
                 ],
                 "total": 1,
-                "cursor": None,
+                "next_cursor": None,
                 "has_more": False,
             }
         },

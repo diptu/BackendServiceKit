@@ -11,6 +11,13 @@
 - [ ] (IN-PROGRESS) Implement Tenant Context Middleware to enforce Tenant ID in all service requests (Due: 2026-06-02)
 
 
+## TenantLifecycle
+# Tenant Lifecycle Service — TODO
+
+- [ ] (PENDING) implement "PUT /tenant-lifecycle/{tenant_id}"/suspend
+- [x] (COMPLETED) implement PUT /tenant-lifecycle/{tenant_id}/activate
+
+
 ## TenantManagement
 # TenantManagement
 
@@ -34,7 +41,7 @@
 
 ### implement following endpoints:
 
-- [x] (ComCOMPLETEDpleted) POST /tenants (v1.0-api)
+- [x] (COMPLETED) POST /tenants (v1.0-api)
 - [x] (COMPLETED) GET /tenants (v1.0 - api)
 - [x] (COMPLETED) GET /tenants/{tenant_id} (v1.0- api)
 - [x] (COMPLETED) PATCH /tenants/{tenant_id} (v1.0- api)

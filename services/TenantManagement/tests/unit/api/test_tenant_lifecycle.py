@@ -1,16 +1,17 @@
 """API-level tests for tenant lifecycle transition endpoints.
 
 Covers:
+  POST /api/v1/tenants/{tenant_id}/provision
   POST /api/v1/tenants/{tenant_id}/activate
   POST /api/v1/tenants/{tenant_id}/suspend
   POST /api/v1/tenants/{tenant_id}/archive
 
-State machine:
-  draft       → provisioning
-  provisioning→ active | draft
-  active      → suspended | archived
-  suspended   → active  | archived
-  archived    → deleted
+State machine (per TenentStates.md):
+  draft        → provisioning | deleted
+  provisioning → active       | deleted
+  active       → suspended    | archived | deleted
+  suspended    → active       | archived | deleted
+  archived     → deleted
 """
 
 from __future__ import annotations
@@ -315,14 +316,17 @@ async def test_archive_reason_too_long_returns_422(client: AsyncClient) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Full lifecycle path: provisioning → active → suspended → active → archived
+# Full lifecycle path: draft → provisioning → active → suspended → active → archived
 # ---------------------------------------------------------------------------
 
 
 async def test_full_lifecycle_path(client: AsyncClient) -> None:
     tid = await _create_tenant(client, name="lifecycle-tenant")
 
-    await _force_status(tid, "provisioning")
+    r = await client.post(f"{_BASE}/{tid}/provision", json={})
+    assert r.status_code == 200
+    assert r.json()["status"] == "provisioning"
+
     r = await client.post(f"{_BASE}/{tid}/activate", json={})
     assert r.status_code == 200
     assert r.json()["status"] == "active"

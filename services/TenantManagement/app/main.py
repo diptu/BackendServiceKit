@@ -98,10 +98,10 @@ Rate-limited requests receive `429 Too Many Requests` with a `Retry-After` heade
 List endpoints support **cursor-based pagination**:
 
 ```
-GET /api/v1/tenants?limit=20&cursor=<opaque_cursor>
+GET /api/v1/tenants?limit=20&next_cursor=<opaque_cursor>
 ```
 
-Response includes `cursor`, `has_more`, and `total`.
+Response includes `next_cursor`, `has_more`, and `total`.
 
 ---
 

@@ -89,8 +89,9 @@ Supports filtering by `status` and `region`. Soft-deleted tenants
     responses={401: R_401, 403: R_403},
 )
 async def list_tenants(
-    cursor: str | None = Query(
+    next_cursor: str | None = Query(
         default=None,
+        alias="next_cursor",
         description="Opaque cursor from the previous response. Omit for the first page.",
     ),
     limit: int = Query(
@@ -122,13 +123,13 @@ async def list_tenants(
         status_filter=status_filter,
         region=region,
         search=search,
-        cursor=cursor,
+        cursor=next_cursor,
         limit=limit,
     )
     return TenantListResponse(
         items=[TenantSummary.model_validate(t) for t in result.items],
         total=result.total,
-        cursor=result.next_cursor,
+        next_cursor=result.next_cursor,
         has_more=result.has_more,
     )
 
@@ -212,6 +213,31 @@ async def delete_tenant(
 
 
 @router.post(
+    "/{tenant_id}/provision",
+    response_model=TenantResponse,
+    tags=["Tenant Lifecycle"],
+    summary="Start tenant provisioning",
+    description="""\
+Transition a `draft` tenant to `provisioning` state (infrastructure setup begins).
+
+**Valid source state:** `draft`
+
+Emits a `TenantProvisioningStarted` event.
+
+Returns `409 Conflict` for all other source states.
+""",
+    responses=RESPONSES_TRANSITION,
+)
+async def provision_tenant(
+    tenant_id: UUID,
+    body: TransitionRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TenantResponse:
+    tenant = await TenantService(db).provision(tenant_id, body.reason)
+    return TenantResponse.model_validate(tenant)
+
+
+@router.post(
     "/{tenant_id}/activate",
     response_model=TenantResponse,
     tags=["Tenant Lifecycle"],
@@ -221,7 +247,7 @@ Transition a tenant to `active` state.
 
 **Valid source states:** `provisioning`, `suspended`
 
-- `provisioning → active`: Called by the Provisioning Service on successful completion.
+- `provisioning → active`: Called once provisioning is complete and the tenant is ready for use.
 - `suspended → active`: Called by a platform administrator to reactivate a suspended tenant.
 
 Emits `TenantActivated` or `TenantReactivated` event depending on the source state.

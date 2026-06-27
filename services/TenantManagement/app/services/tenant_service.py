@@ -16,6 +16,7 @@ from app.domain.events import (
     TenantArchived,
     TenantCreated,
     TenantDeleted,
+    TenantProvisioningStarted,
     TenantReactivated,
     TenantSuspended,
     TenantUpdated,
@@ -186,6 +187,18 @@ class TenantService:
     # ------------------------------------------------------------------
     # Lifecycle transitions
     # ------------------------------------------------------------------
+
+    async def provision(self, tenant_id: UUID, reason: str | None = None) -> Tenant:
+        """Transition DRAFT → PROVISIONING (infrastructure setup phase)."""
+        tenant = await self.get(tenant_id)
+        current = TenantStatus(tenant.status)
+        self._check_transition(current, TenantStatus.PROVISIONING)
+
+        tenant.status = TenantStatus.PROVISIONING
+        tenant.updated_at = datetime.now(timezone.utc)
+        tenant = await self._repo.save(tenant)
+        _emit(TenantProvisioningStarted(tenant_id=tenant.id))
+        return tenant
 
     async def activate(self, tenant_id: UUID, reason: str | None = None) -> Tenant:
         tenant = await self.get(tenant_id)

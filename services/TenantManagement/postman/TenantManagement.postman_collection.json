@@ -165,7 +165,7 @@
               "path": ["tenants"],
               "query": [
                 {
-                  "key": "cursor",
+                  "key": "next_cursor",
                   "value": "",
                   "description": "Opaque pagination cursor from a previous response. Omit for the first page.",
                   "disabled": true
@@ -189,7 +189,7 @@
                 }
               ]
             },
-            "description": "Return a cursor-paginated list of tenants, sorted by `created_at` descending.\n\nSoft-deleted tenants are excluded unless `status=deleted` is passed.\n\nUse the `cursor` from the response to fetch the next page."
+            "description": "Return a cursor-paginated list of tenants, sorted by `created_at` descending.\n\nSoft-deleted tenants are excluded unless `status=deleted` is passed.\n\nUse the `next_cursor` from the response to fetch the next page."
           },
           "response": [
             {
@@ -197,7 +197,7 @@
               "status": "OK",
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "{\n  \"items\": [\n    {\n      \"id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n      \"name\": \"alphabet-corp\",\n      \"display_name\": \"Alphabet Corporation\",\n      \"status\": \"active\",\n      \"region\": \"us-east-1\",\n      \"created_at\": \"2026-06-27T10:00:00Z\"\n    },\n    {\n      \"id\": \"3139d32c-93cd-49bf-9c94-1cf0dc98d2c1\",\n      \"name\": \"meta-platforms\",\n      \"display_name\": \"Meta Platforms\",\n      \"status\": \"active\",\n      \"region\": \"us-west-2\",\n      \"created_at\": \"2026-06-27T10:00:00Z\"\n    }\n  ],\n  \"total\": 2,\n  \"cursor\": null,\n  \"has_more\": false\n}"
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n      \"name\": \"alphabet-corp\",\n      \"display_name\": \"Alphabet Corporation\",\n      \"status\": \"draft\",\n      \"region\": \"us-east-1\",\n      \"created_at\": \"2026-06-28T10:00:00Z\"\n    },\n    {\n      \"id\": \"3139d32c-93cd-49bf-9c94-1cf0dc98d2c1\",\n      \"name\": \"meta-platforms\",\n      \"display_name\": \"Meta Platforms\",\n      \"status\": \"draft\",\n      \"region\": \"us-west-2\",\n      \"created_at\": \"2026-06-28T10:00:00Z\"\n    }\n  ],\n  \"total\": 2,\n  \"next_cursor\": null,\n  \"has_more\": false\n}"
             }
           ]
         },
@@ -238,7 +238,7 @@
               "status": "OK",
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "{\n  \"id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n  \"name\": \"alphabet-corp\",\n  \"display_name\": \"Alphabet Corporation\",\n  \"description\": \"Google's parent company.\",\n  \"status\": \"active\",\n  \"region\": \"us-east-1\",\n  \"timezone\": \"America/Los_Angeles\",\n  \"locale\": \"en-US\",\n  \"currency\": \"USD\",\n  \"owner_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\",\n  \"created_at\": \"2026-06-27T10:00:00Z\",\n  \"updated_at\": \"2026-06-27T10:00:00Z\",\n  \"deleted_at\": null\n}"
+              "body": "{\n  \"id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n  \"name\": \"alphabet-corp\",\n  \"display_name\": \"Alphabet Corporation\",\n  \"description\": \"Google's parent company.\",\n  \"status\": \"draft\",\n  \"region\": \"us-east-1\",\n  \"timezone\": \"America/Los_Angeles\",\n  \"locale\": \"en-US\",\n  \"currency\": \"USD\",\n  \"owner_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\",\n  \"created_at\": \"2026-06-28T10:00:00Z\",\n  \"updated_at\": \"2026-06-28T10:00:00Z\",\n  \"deleted_at\": null\n}"
             },
             {
               "name": "404 Not Found",
@@ -274,7 +274,7 @@
               "status": "OK",
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "{\n  \"id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n  \"name\": \"alphabet-corp\",\n  \"display_name\": \"Alphabet Corporation (Updated)\",\n  \"description\": \"Updated description — Google's parent company and technology conglomerate.\",\n  \"status\": \"active\",\n  \"region\": \"us-east-1\",\n  \"timezone\": \"America/Chicago\",\n  \"locale\": \"en-US\",\n  \"currency\": \"USD\",\n  \"owner_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\",\n  \"created_at\": \"2026-06-27T10:00:00Z\",\n  \"updated_at\": \"2026-06-27T12:00:00Z\",\n  \"deleted_at\": null\n}"
+              "body": "{\n  \"id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n  \"name\": \"alphabet-corp\",\n  \"display_name\": \"Alphabet Corporation (Updated)\",\n  \"description\": \"Updated description — Google's parent company and technology conglomerate.\",\n  \"status\": \"draft\",\n  \"region\": \"us-east-1\",\n  \"timezone\": \"America/Chicago\",\n  \"locale\": \"en-US\",\n  \"currency\": \"USD\",\n  \"owner_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\",\n  \"created_at\": \"2026-06-28T10:00:00Z\",\n  \"updated_at\": \"2026-06-28T12:00:00Z\",\n  \"deleted_at\": null\n}"
             }
           ]
         },
@@ -311,7 +311,7 @@
     },
     {
       "name": "Tenant Lifecycle",
-      "description": "State machine transitions: `draft → provisioning → active → suspended → archived → deleted`.\n\nAll transition endpoints accept an optional `reason` body. Returns `409 Conflict` when the current state is not a valid source for the requested transition.",
+      "description": "TenantManagement state machine transitions: `draft → provisioning → active ⇄ suspended → archived → deleted`.\n\nTM does not own state transitions directly — the **TenantLifecycle Service** (port 8001) drives all transitions and calls TM to keep it in sync. These endpoints reflect what TL calls on TM.\n\nAll transition endpoints accept an optional `reason` body. Returns `409 Conflict` when the current state is not a valid source for the requested transition.",
       "item": [
         {
           "name": "Activate Tenant — POST /tenants/:tenant_id/activate",
@@ -330,7 +330,7 @@
               "host": ["{{base_url}}{{api_v1}}"],
               "path": ["tenants", "{{tenant_id}}", "activate"]
             },
-            "description": "Transition to `active` state.\n\n**Valid source states:** `provisioning`, `suspended`\n\n- `provisioning → active`: Called by the Provisioning Service on successful completion.\n- `suspended → active`: Called by a platform administrator to reactivate.\n\nEmits `TenantActivated` or `TenantReactivated` depending on the source state."
+            "description": "Transition to `active` state.\n\n**Valid source state:** `provisioning`\n\nCalled by the **TenantLifecycle Service** when a tenant completes the `pending → active` TL transition. TM jumps directly from `provisioning → active` because TM has no `pending` state (pending is TL-only).\n\nEmits `TenantActivated`."
           },
           "response": [
             {

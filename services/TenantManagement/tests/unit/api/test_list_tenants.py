@@ -85,7 +85,7 @@ async def test_list_empty(client: AsyncClient) -> None:
     assert body["items"] == []
     assert body["total"] == 0
     assert body["has_more"] is False
-    assert body["cursor"] is None
+    assert body["next_cursor"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +131,7 @@ async def test_list_limit(client: AsyncClient) -> None:
     body = resp.json()
     assert len(body["items"]) == 2
     assert body["has_more"] is True
-    assert body["cursor"] is not None
+    assert body["next_cursor"] is not None
 
 
 async def test_list_cursor_next_page(client: AsyncClient) -> None:
@@ -139,7 +139,7 @@ async def test_list_cursor_next_page(client: AsyncClient) -> None:
         await _create(client, f"tenant-{i:02d}")
     first = (await client.get(_BASE, params={"limit": 2})).json()
     assert first["has_more"] is True
-    second = (await client.get(_BASE, params={"limit": 2, "cursor": first["cursor"]})).json()
+    second = (await client.get(_BASE, params={"limit": 2, "next_cursor": first["next_cursor"]})).json()
     assert len(second["items"]) == 1
     assert second["has_more"] is False
     # No overlap between pages

@@ -156,24 +156,37 @@ cd services/IAM && bash scripts/bootstrap.sh  # First-time setup for IAM (venv, 
 
 Active: IAM (Phase 1). Next planned (per `Implementation-order.md`): Tenant Management → Organization → User Management → Group → Membership → Authentication → Session → MFA → Roles → Permissions → Resources → Attributes → ABAC → Authorization → Audit Logging → Observability.
 
-# TenantManagement State Machine
-```text
-draft 
-   |
-   v
-provisioning 
-   |
-   v
-Pending
-   |
-   v
-Active
-   |
-   +----> Suspended ---->  active (for reactivation)
-   |
-   +----> Locked
-   |
-   +----> Archived
-   |
-   +----> Deleted
+# Tenant Lifecycle States
+
+| State | Description | Key Rules |
+|-------|-------------|-----------|
+| **draft** | Tenant record created; no resources allocated. | Entry state. TM only. |
+| **provisioning** | Async infra setup in progress (DB, API keys, VPC). | TL entry via `PUT /provisioning`. |
+| **pending** | Provisioning done; awaiting compliance/confirmation. | Must pass through before active. |
+| **active** | Fully operational and billed. | Normal operating state. |
+| **suspended** | Service paused — non-payment or policy violation. | Data retained. Reversible via reactivate. |
+| **locked** | Security hold; admin-triggered for investigation. | TL-only (TM proxies as suspended). Reversible via unlock. |
+| **archived** | Cold storage after contract end; no production access. | Prerequisite for deletion. |
+| **deleted** | Soft-delete. Hard purge by Offboarding Service post-retention. | Terminal state. |
+
+## State Machine Flow
+
 ```
+TM:  draft → provisioning → pending → active ⇄ suspended
+                                            ↘ archived → deleted
+TL:           provisioning → pending → active ⇄ suspended
+                                            ↓         ↘ archived → deleted
+                                          locked → active
+```
+
+## Service Responsibilities
+
+- **TenantManagement** (port 8000): authoritative CRUD, owns `draft`/`provisioning`/`pending`/`active`/`suspended`/`archived`/`deleted` states.
+- **TenantLifecycle** (port 8001): authoritative state machine. Drives all transitions; fires HTTP to TM to keep it in sync (fire-and-log — TM failures are non-fatal). Owns the additional `locked` state (proxied to TM as `suspended`).
+
+## Key Transition Rules
+
+- `provisioning → pending` requires explicit `POST /pend` (not auto-advanced)
+- `pending → active` requires explicit `PUT /activate` (compliance gate)
+- `locked` is TL-only; lock/unlock syncs TM as suspend/activate
+- `deleted` is terminal — no further transitions allowed

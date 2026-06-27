@@ -238,7 +238,7 @@ async def _seed_tenant(
             name=entry["slug"],
             display_name=entry["display_name"],
             description=entry["description"],
-            status=TenantStatus.ACTIVE,
+            status=TenantStatus.DRAFT,
             region=entry["region"],
             timezone=entry["timezone"],
             locale=entry["locale"],

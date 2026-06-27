@@ -23,37 +23,55 @@ Handles the state transitions of a tenant throughout its lifecycle.
 ## Tenant State Machine
 
 ```text
-draft 
+draft (TM)
    |
-   v
-provisioning 
+   v (PUT /provisioning)
+provisioning
    |
-   v
-Pending
+   v (PUT /pending)
+pending
    |
-   v
-Active
+   v (PUT /activate)
+active
    |
-   +----> Suspended ---->  active (for reactivation)
+   +----> suspended  <----> active  (PUT /suspend / PUT /reactivate)
+   |           |
+   |           +----------> archived -----> deleted
    |
-   +----> Locked
+   +----> locked     -----> active  (PUT /lock / PUT /unlock)
+   |         |
+   |         +------------> archived -----> deleted
    |
-   +----> Archived
-   |
-   +----> Deleted
+   +----> archived -------> deleted  (PUT /archive / PUT /delete)
 ```
+
+## Lifecycle States
+
+| State | Description | Trigger Example |
+|-------|-------------|-----------------|
+| **draft** | Initial tenant record created; no resources allocated. | Sales creates a "Meta" record in the admin portal. |
+| **provisioning** | Async infrastructure setup in progress (DB sharding, API keys, VPC peering). | Terraform provisions Meta's isolated database schema. |
+| **pending** | Provisioning complete; awaiting final confirmation or compliance sign-off. | Meta's IT team verifies their primary IdP integration. |
+| **active** | Fully operational and billed; users can log in. | Meta employees begin using the platform. |
+| **suspended** | Service paused — non-payment or policy violation; data retained. | Meta misses a payment deadline; access is revoked. |
+| **locked** | Preventative security hold; admin-triggered for investigation. | Unusual API traffic from Meta's key — admin investigates. |
+| **archived** | Long-term cold storage after contract end; no production access. | Meta ends their contract; data retained for audit. |
+| **deleted** | Permanent soft-delete; hard purge handled by the Offboarding Service. | Post-retention period — all Meta rows are purged. |
 
 ## API Endpoints
 
-| Method | Endpoint |
-|----------|----------|
-| PUT | `/tenant-lifecycle/{tenant_id}/activate` |
-| PUT | `/tenant-lifecycle/{tenant_id}/suspend` |
-| PUT | `/tenant-lifecycle/{tenant_id}/lock` |
-| PUT | `/tenant-lifecycle/{tenant_id}/archive` |
-| PUT | `/tenant-lifecycle/{tenant_id}/reactivate` |
-| PUT | `/tenant-lifecycle/{tenant_id}/delete` |
-| PUT | `/tenant-lifecycle/{tenant_id}/history` |
+| Method | Endpoint | Transition |
+|--------|----------|------------|
+| PUT | `/tenant-lifecycle/{tenant_id}/provisioning` | → provisioning |
+| PUT | `/tenant-lifecycle/{tenant_id}/pending` | provisioning → pending |
+| PUT | `/tenant-lifecycle/{tenant_id}/activate` | pending → active |
+| PUT | `/tenant-lifecycle/{tenant_id}/suspend` | active → suspended (idempotent) |
+| PUT | `/tenant-lifecycle/{tenant_id}/reactivate` | suspended → active |
+| PUT | `/tenant-lifecycle/{tenant_id}/lock` | active → locked |
+| PUT | `/tenant-lifecycle/{tenant_id}/unlock` | locked → active |
+| PUT | `/tenant-lifecycle/{tenant_id}/archive` | active / suspended / locked → archived |
+| PUT | `/tenant-lifecycle/{tenant_id}/delete` | archived → deleted |
+| GET | `/tenant-lifecycle/{tenant_id}/history` | — |
 
 ## Example Events
 

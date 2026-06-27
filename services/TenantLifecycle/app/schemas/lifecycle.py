@@ -100,12 +100,17 @@ class LifecycleEventResponse(AppBaseModel):
 
 
 class LifecycleHistoryResponse(AppBaseModel):
-    """Paginated list of lifecycle events for a tenant."""
+    """Cursor-paginated list of lifecycle events for a tenant."""
 
     tenant_id: UUID
     events: list[LifecycleEventResponse]
     total: int = Field(..., description="Total number of events.", examples=[5])
     has_more: bool = Field(..., description="Whether additional pages are available.")
+    next_cursor: str | None = Field(
+        default=None,
+        description="Opaque cursor for the next page. `null` when no more pages.",
+        examples=["eyJ0cyI6ICIyMDI2LTA2LTI4VDEwOjAwOjAwKzAwOjAwIiwgImlkIjogIjU1MGU4NDAwIn0="],
+    )
 
     model_config = ConfigDict(
         populate_by_name=True,

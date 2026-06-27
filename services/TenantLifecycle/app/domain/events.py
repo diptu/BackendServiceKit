@@ -12,6 +12,24 @@ def _utcnow() -> datetime:
 
 
 @dataclass
+class TenantProvisioningStarted:
+    tenant_id: UUID
+    provisioned_by: UUID | None = None
+    reason: str | None = None
+    event_id: UUID = field(default_factory=uuid4)
+    timestamp: datetime = field(default_factory=_utcnow)
+
+
+@dataclass
+class TenantPended:
+    tenant_id: UUID
+    pended_by: UUID | None = None
+    reason: str | None = None
+    event_id: UUID = field(default_factory=uuid4)
+    timestamp: datetime = field(default_factory=_utcnow)
+
+
+@dataclass
 class TenantActivated:
     tenant_id: UUID
     activated_by: UUID | None = None
@@ -40,6 +58,15 @@ class TenantReactivated:
 class TenantLocked:
     tenant_id: UUID
     locked_by: UUID | None = None
+    reason: str | None = None
+    event_id: UUID = field(default_factory=uuid4)
+    timestamp: datetime = field(default_factory=_utcnow)
+
+
+@dataclass
+class TenantUnlocked:
+    tenant_id: UUID
+    unlocked_by: UUID | None = None
     reason: str | None = None
     event_id: UUID = field(default_factory=uuid4)
     timestamp: datetime = field(default_factory=_utcnow)
