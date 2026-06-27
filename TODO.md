@@ -7,9 +7,13 @@
 ## IAM
 
 
-## Tenant-Management
-- [ ] (PENDING) Define business requirements (Phase 1 - Planning)
-- [ ] (PENDING) Define functional requirements (Phase 1 - Planning)
+## TenantIsolation
+- [ ] (IN-PROGRESS) Implement Tenant Context Middleware to enforce Tenant ID in all service requests (Due: 2026-06-02)
+
+
+## TenantManagement
+- [x] (Completed) Define business requirements (Phase 1 - Planning)
+- [x] (Completed) Define functional requirements (Phase 1 - Planning)
 - [ ] (PENDING) Define non-functional requirements (Phase 1 - Planning)
 - [ ] Define tenant lifecycle
 - [ ] (PENDING) Define tenant states (Phase 1 - Planning)
@@ -22,10 +26,6 @@
 - [ ] (PENDING) Define ABAC requirements (Phase 1 - Planning)
 - [ ] (PENDING) Write README.md (Phase 1 - Planning)
 - [ ] (PENDING) Create TODO.md (Phase 1 - Planning)
-
-
-## TenantIsolation
-- [ ] (IN-PROGRESS) Implement Tenant Context Middleware to enforce Tenant ID in all service requests (Due: 2026-06-02)
 
 
 ## UserLifecycleManagement
