@@ -1,0 +1,687 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "Tenant Management Service",
+    "description": "Full API test suite for the Tenant Management microservice.\n\n**Base URL variable:** `{{base_url}}` defaults to `http://localhost:8000`.\n\n**Seeded tenant IDs (from `scripts/seed.py --seed 42`):**\n- Alphabet Corporation: `bdd640fb-0667-4ad1-9c80-317fa3b1799d`\n- Meta Platforms: `3139d32c-93cd-49bf-9c94-1cf0dc98d2c1`\n\nEndpoints are grouped by tag:\n1. Health\n2. Tenants (CRUD)\n3. Tenant Lifecycle\n4. Tenant Settings\n5. Tenant Owners\n6. Tenant Metadata",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string",
+      "description": "Base URL of the running service. Change to your staging/prod URL as needed."
+    },
+    {
+      "key": "api_v1",
+      "value": "/api/v1",
+      "type": "string",
+      "description": "API version prefix — matches settings.api_v1_prefix."
+    },
+    {
+      "key": "tenant_id",
+      "value": "bdd640fb-0667-4ad1-9c80-317fa3b1799d",
+      "type": "string",
+      "description": "Alphabet Corporation tenant ID (seeded by scripts/seed.py --seed 42)."
+    },
+    {
+      "key": "owner_id",
+      "value": "00000000-0000-0000-0000-000000000001",
+      "type": "string",
+      "description": "A contact/owner UUID. Replace with an actual ID from GET /tenants/:id/owners."
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "description": "Kubernetes liveness and readiness probes. These endpoints have no `/api/v1` prefix.",
+      "item": [
+        {
+          "name": "Liveness — GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Confirms the service process is alive. Does **not** check downstream dependencies. Kubernetes uses this to decide whether to restart the container."
+          },
+          "response": [
+            {
+              "name": "200 OK — alive",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"status\": \"ok\"}"
+            }
+          ]
+        },
+        {
+          "name": "Readiness — GET /ready",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ready",
+              "host": ["{{base_url}}"],
+              "path": ["ready"]
+            },
+            "description": "Confirms the service is ready to accept traffic. Checks that the database and message broker are reachable. The load balancer uses this to decide whether to route requests here."
+          },
+          "response": [
+            {
+              "name": "200 OK — ready",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"status\": \"ready\"}"
+            },
+            {
+              "name": "503 Service Unavailable — dependency down",
+              "status": "Service Unavailable",
+              "code": 503,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"status\": \"not ready\", \"detail\": \"Database unreachable.\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tenants",
+      "description": "Core CRUD operations for tenant resources.",
+      "item": [
+        {
+          "name": "Create Tenant — POST /tenants",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('tenant_id', body.id);",
+                  "    pm.test('tenant_id saved to collection variable', () => {",
+                  "        pm.expect(body.id).to.be.a('string');",
+                  "    });",
+                  "}",
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"acme-corp\",\n  \"display_name\": \"Acme Corporation\",\n  \"description\": \"Enterprise SaaS customer for testing.\",\n  \"owner_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\",\n  \"region\": \"us-east-1\",\n  \"timezone\": \"America/New_York\",\n  \"locale\": \"en-US\",\n  \"currency\": \"USD\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants"]
+            },
+            "description": "Create a new tenant in `draft` state.\n\n- `name` (slug) must be globally unique and match `^[a-z0-9][a-z0-9-]*[a-z0-9]$`.\n- `name` is immutable after creation.\n- The provisioning workflow transitions the tenant `draft → provisioning → active` automatically.\n\nThe test script saves the returned `id` to the `tenant_id` collection variable."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"name\": \"acme-corp\",\n  \"display_name\": \"Acme Corporation\",\n  \"description\": \"Enterprise SaaS customer for testing.\",\n  \"status\": \"draft\",\n  \"region\": \"us-east-1\",\n  \"timezone\": \"America/New_York\",\n  \"locale\": \"en-US\",\n  \"currency\": \"USD\",\n  \"owner_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\",\n  \"created_at\": \"2026-06-27T10:00:00Z\",\n  \"updated_at\": \"2026-06-27T10:00:00Z\",\n  \"deleted_at\": null\n}"
+            },
+            {
+              "name": "409 Conflict — slug already taken",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"detail\": \"A tenant with name 'acme-corp' already exists.\"}"
+            },
+            {
+              "name": "422 Unprocessable Entity — validation error",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": [\n    {\n      \"type\": \"string_pattern_mismatch\",\n      \"loc\": [\"body\", \"name\"],\n      \"msg\": \"String should match pattern '^[a-z0-9][a-z0-9-]*[a-z0-9]$'\",\n      \"input\": \"Acme Corp\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Tenants — GET /tenants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants?limit=20",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants"],
+              "query": [
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "description": "Opaque pagination cursor from a previous response. Omit for the first page.",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Results per page (1–100). Default: 20."
+                },
+                {
+                  "key": "status",
+                  "value": "active",
+                  "description": "Filter by status: draft | provisioning | active | suspended | archived | deleted.",
+                  "disabled": true
+                },
+                {
+                  "key": "region",
+                  "value": "us-east-1",
+                  "description": "Filter by deployment region.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Return a cursor-paginated list of tenants, sorted by `created_at` descending.\n\nSoft-deleted tenants are excluded unless `status=deleted` is passed.\n\nUse the `cursor` from the response to fetch the next page."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n      \"name\": \"alphabet-corp\",\n      \"display_name\": \"Alphabet Corporation\",\n      \"status\": \"active\",\n      \"region\": \"us-east-1\",\n      \"created_at\": \"2026-06-27T10:00:00Z\"\n    },\n    {\n      \"id\": \"3139d32c-93cd-49bf-9c94-1cf0dc98d2c1\",\n      \"name\": \"meta-platforms\",\n      \"display_name\": \"Meta Platforms\",\n      \"status\": \"active\",\n      \"region\": \"us-west-2\",\n      \"created_at\": \"2026-06-27T10:00:00Z\"\n    }\n  ],\n  \"total\": 2,\n  \"cursor\": null,\n  \"has_more\": false\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Tenants (filtered active + us-east-1) — GET /tenants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants?status=active&region=us-east-1&limit=10",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants"],
+              "query": [
+                { "key": "status", "value": "active" },
+                { "key": "region", "value": "us-east-1" },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "Filter the tenant list to only `active` tenants in `us-east-1`. Demonstrates combined status + region filtering."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Tenant — GET /tenants/:tenant_id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants/{{tenant_id}}",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants", "{{tenant_id}}"]
+            },
+            "description": "Retrieve the full tenant record by UUID.\n\nReplace `{{tenant_id}}` with the Alphabet Corp ID `bdd640fb-0667-4ad1-9c80-317fa3b1799d` or any UUID created by the Create request above."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n  \"name\": \"alphabet-corp\",\n  \"display_name\": \"Alphabet Corporation\",\n  \"description\": \"Google's parent company.\",\n  \"status\": \"active\",\n  \"region\": \"us-east-1\",\n  \"timezone\": \"America/Los_Angeles\",\n  \"locale\": \"en-US\",\n  \"currency\": \"USD\",\n  \"owner_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\",\n  \"created_at\": \"2026-06-27T10:00:00Z\",\n  \"updated_at\": \"2026-06-27T10:00:00Z\",\n  \"deleted_at\": null\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"detail\": \"Tenant not found.\"}"
+            }
+          ]
+        },
+        {
+          "name": "Update Tenant — PATCH /tenants/:tenant_id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"display_name\": \"Alphabet Corporation (Updated)\",\n  \"description\": \"Updated description — Google's parent company and technology conglomerate.\",\n  \"timezone\": \"America/Chicago\",\n  \"locale\": \"en-US\",\n  \"currency\": \"USD\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants/{{tenant_id}}",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants", "{{tenant_id}}"]
+            },
+            "description": "Partially update mutable tenant fields. All body fields are optional — only provided fields are updated.\n\n**Immutable fields** (will be ignored/rejected): `id`, `name`, `created_at`.\n\nEmits a `TenantUpdated` domain event and creates an audit record."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n  \"name\": \"alphabet-corp\",\n  \"display_name\": \"Alphabet Corporation (Updated)\",\n  \"description\": \"Updated description — Google's parent company and technology conglomerate.\",\n  \"status\": \"active\",\n  \"region\": \"us-east-1\",\n  \"timezone\": \"America/Chicago\",\n  \"locale\": \"en-US\",\n  \"currency\": \"USD\",\n  \"owner_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\",\n  \"created_at\": \"2026-06-27T10:00:00Z\",\n  \"updated_at\": \"2026-06-27T12:00:00Z\",\n  \"deleted_at\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Soft-Delete Tenant — DELETE /tenants/:tenant_id",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants/{{tenant_id}}",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants", "{{tenant_id}}"]
+            },
+            "description": "Soft-delete a tenant. The tenant **must be in `archived` state** first (archive it via `POST /tenants/:id/archive`). The record is retained for audit purposes and the slug remains reserved. Returns `204 No Content` on success.\n\nEmits a `TenantDeleted` domain event."
+          },
+          "response": [
+            {
+              "name": "204 No Content — deleted",
+              "status": "No Content",
+              "code": 204,
+              "header": [],
+              "body": ""
+            },
+            {
+              "name": "409 Conflict — not in archived state",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"detail\": \"Tenant must be in 'archived' state before deletion. Transition to 'archived' first.\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tenant Lifecycle",
+      "description": "State machine transitions: `draft → provisioning → active → suspended → archived → deleted`.\n\nAll transition endpoints accept an optional `reason` body. Returns `409 Conflict` when the current state is not a valid source for the requested transition.",
+      "item": [
+        {
+          "name": "Activate Tenant — POST /tenants/:tenant_id/activate",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Provisioning complete — tenant is ready for use.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants/{{tenant_id}}/activate",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants", "{{tenant_id}}", "activate"]
+            },
+            "description": "Transition to `active` state.\n\n**Valid source states:** `provisioning`, `suspended`\n\n- `provisioning → active`: Called by the Provisioning Service on successful completion.\n- `suspended → active`: Called by a platform administrator to reactivate.\n\nEmits `TenantActivated` or `TenantReactivated` depending on the source state."
+          },
+          "response": [
+            {
+              "name": "200 OK — now active",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n  \"name\": \"alphabet-corp\",\n  \"display_name\": \"Alphabet Corporation\",\n  \"status\": \"active\",\n  \"region\": \"us-east-1\",\n  \"timezone\": \"America/Los_Angeles\",\n  \"locale\": \"en-US\",\n  \"currency\": \"USD\",\n  \"owner_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\",\n  \"created_at\": \"2026-06-27T10:00:00Z\",\n  \"updated_at\": \"2026-06-27T11:00:00Z\",\n  \"deleted_at\": null,\n  \"description\": null\n}"
+            },
+            {
+              "name": "409 Conflict — invalid transition",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"detail\": \"Cannot transition from 'active' to 'active'.\"}"
+            }
+          ]
+        },
+        {
+          "name": "Suspend Tenant — POST /tenants/:tenant_id/suspend",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Non-payment — subscription expired 2026-06-01.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants/{{tenant_id}}/suspend",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants", "{{tenant_id}}", "suspend"]
+            },
+            "description": "Transition an `active` tenant to `suspended` state.\n\n**Effects:**\n- All user logins are immediately blocked.\n- All API access for the tenant is blocked.\n- All tenant data is preserved.\n\nProviding a `reason` is strongly recommended for audit clarity. Emits `TenantSuspended`."
+          },
+          "response": [
+            {
+              "name": "200 OK — now suspended",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n  \"name\": \"alphabet-corp\",\n  \"status\": \"suspended\",\n  \"region\": \"us-east-1\",\n  \"display_name\": \"Alphabet Corporation\",\n  \"timezone\": \"America/Los_Angeles\",\n  \"locale\": \"en-US\",\n  \"currency\": \"USD\",\n  \"owner_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\",\n  \"created_at\": \"2026-06-27T10:00:00Z\",\n  \"updated_at\": \"2026-06-27T13:00:00Z\",\n  \"deleted_at\": null,\n  \"description\": null\n}"
+            },
+            {
+              "name": "409 Conflict — not in active state",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"detail\": \"Cannot transition from 'suspended' to 'suspended'. Tenant must be 'active'.\"}"
+            }
+          ]
+        },
+        {
+          "name": "Archive Tenant — POST /tenants/:tenant_id/archive",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Customer requested account closure.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants/{{tenant_id}}/archive",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants", "{{tenant_id}}", "archive"]
+            },
+            "description": "Transition to `archived` (read-only) state.\n\n**Valid source states:** `active`, `suspended`\n\n**Effects:**\n- All write operations on the tenant and its resources return `423 Locked`.\n- The tenant is retained for compliance and audit purposes.\n- Archival is a prerequisite for soft-deletion.\n\nEmits `TenantArchived`."
+          },
+          "response": [
+            {
+              "name": "200 OK — now archived",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n  \"name\": \"alphabet-corp\",\n  \"status\": \"archived\",\n  \"region\": \"us-east-1\",\n  \"display_name\": \"Alphabet Corporation\",\n  \"timezone\": \"America/Los_Angeles\",\n  \"locale\": \"en-US\",\n  \"currency\": \"USD\",\n  \"owner_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\",\n  \"created_at\": \"2026-06-27T10:00:00Z\",\n  \"updated_at\": \"2026-06-27T14:00:00Z\",\n  \"deleted_at\": null,\n  \"description\": null\n}"
+            },
+            {
+              "name": "409 Conflict — invalid source state",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"detail\": \"Cannot transition from 'draft' to 'archived'. Valid sources: active, suspended.\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tenant Settings",
+      "description": "Per-tenant configuration sub-resource: timezone, locale, language, date/number formats, session timeout, and UI theme.",
+      "item": [
+        {
+          "name": "Get Settings — GET /tenants/:tenant_id/settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants/{{tenant_id}}/settings",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants", "{{tenant_id}}", "settings"]
+            },
+            "description": "Retrieve all configuration settings for the tenant. One settings record exists per tenant, created alongside the tenant."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"7c9e6679-7425-40de-944b-e07fc1f90ae7\",\n  \"tenant_id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n  \"timezone\": \"America/Los_Angeles\",\n  \"locale\": \"en-US\",\n  \"language\": \"en\",\n  \"date_format\": \"YYYY-MM-DD\",\n  \"number_format\": \"#,###.##\",\n  \"currency\": \"USD\",\n  \"session_timeout_minutes\": 60,\n  \"default_theme\": \"light\",\n  \"updated_at\": \"2026-06-27T10:00:00Z\"\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"detail\": \"Tenant not found.\"}"
+            }
+          ]
+        },
+        {
+          "name": "Update Settings — PATCH /tenants/:tenant_id/settings",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"timezone\": \"America/Chicago\",\n  \"locale\": \"en-US\",\n  \"session_timeout_minutes\": 30,\n  \"default_theme\": \"dark\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants/{{tenant_id}}/settings",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants", "{{tenant_id}}", "settings"]
+            },
+            "description": "Partially update tenant configuration settings. All fields are optional — only provided fields are updated.\n\nUpdates are versioned and generate an audit record. Emits `TenantConfigurationUpdated`.\n\nReturns `423 Locked` if the tenant is in `archived` state."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"7c9e6679-7425-40de-944b-e07fc1f90ae7\",\n  \"tenant_id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n  \"timezone\": \"America/Chicago\",\n  \"locale\": \"en-US\",\n  \"language\": \"en\",\n  \"date_format\": \"YYYY-MM-DD\",\n  \"number_format\": \"#,###.##\",\n  \"currency\": \"USD\",\n  \"session_timeout_minutes\": 30,\n  \"default_theme\": \"dark\",\n  \"updated_at\": \"2026-06-27T15:00:00Z\"\n}"
+            },
+            {
+              "name": "423 Locked — tenant is archived",
+              "status": "Locked",
+              "code": 423,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"detail\": \"Tenant is archived. Write operations are not allowed.\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tenant Owners",
+      "description": "Manage the owners and admins (contacts) of a tenant. At least one active owner must always exist.",
+      "item": [
+        {
+          "name": "List Owners — GET /tenants/:tenant_id/owners",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants/{{tenant_id}}/owners",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants", "{{tenant_id}}", "owners"]
+            },
+            "description": "Return all active owners and admins of the tenant. Removed contacts (those with a `removed_at` timestamp) are excluded."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"3f2504e0-4f89-11d3-9a0c-0305e82c3301\",\n      \"tenant_id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n      \"user_id\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\",\n      \"role\": \"owner\",\n      \"added_at\": \"2026-06-27T10:00:00Z\"\n    },\n    {\n      \"id\": \"9a8b7c6d-5e4f-3210-abcd-ef1234567890\",\n      \"tenant_id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n      \"user_id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"role\": \"admin\",\n      \"added_at\": \"2026-06-27T10:00:00Z\"\n    }\n  ],\n  \"total\": 2\n}"
+            }
+          ]
+        },
+        {
+          "name": "Add Owner — POST /tenants/:tenant_id/owners",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('owner_id', body.id);",
+                  "    pm.test('owner_id saved to collection variable', () => {",
+                  "        pm.expect(body.id).to.be.a('string');",
+                  "    });",
+                  "}",
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"f47ac10b-58cc-4372-a567-0e02b2c3d479\",\n  \"role\": \"admin\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants/{{tenant_id}}/owners",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants", "{{tenant_id}}", "owners"]
+            },
+            "description": "Add a user as an owner or admin of the tenant.\n\n`role` must be `owner` or `admin`. Adding the same `user_id` twice returns `409 Conflict`.\n\nThe test script saves the returned contact `id` to the `owner_id` collection variable for use in the Remove Owner request."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"c0ffee00-dead-beef-cafe-000000000001\",\n  \"tenant_id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n  \"user_id\": \"f47ac10b-58cc-4372-a567-0e02b2c3d479\",\n  \"role\": \"admin\",\n  \"added_at\": \"2026-06-27T16:00:00Z\"\n}"
+            },
+            {
+              "name": "409 Conflict — user already an owner",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"detail\": \"This user is already an owner of the tenant.\"}"
+            }
+          ]
+        },
+        {
+          "name": "Remove Owner — DELETE /tenants/:tenant_id/owners/:owner_id",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants/{{tenant_id}}/owners/{{owner_id}}",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants", "{{tenant_id}}", "owners", "{{owner_id}}"]
+            },
+            "description": "Remove a user from the tenant's owner list. Sets `removed_at` on the contact record (soft-remove).\n\nReturns `422 Unprocessable Entity` if the user being removed is the last active owner — every tenant must retain at least one active owner.\n\nEmits `TenantOwnerRemoved`."
+          },
+          "response": [
+            {
+              "name": "204 No Content — removed",
+              "status": "No Content",
+              "code": 204,
+              "header": [],
+              "body": ""
+            },
+            {
+              "name": "404 Not Found — owner not found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"detail\": \"Owner not found.\"}"
+            },
+            {
+              "name": "422 Unprocessable Entity — last owner",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"detail\": \"Cannot remove the last active owner. Add a replacement owner first.\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tenant Metadata",
+      "description": "Arbitrary key-value enrichment attached to a tenant. Used to store industry, tier, org list, and other free-form attributes consumed by downstream services.",
+      "item": [
+        {
+          "name": "Get Metadata — GET /tenants/:tenant_id/metadata",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants/{{tenant_id}}/metadata",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants", "{{tenant_id}}", "metadata"]
+            },
+            "description": "Retrieve all key-value metadata entries for the tenant. Returns every non-deleted key regardless of value."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"tenant_id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n  \"entries\": [\n    { \"key\": \"industry\",        \"value\": \"Technology\" },\n    { \"key\": \"company_size\",    \"value\": \"enterprise\" },\n    { \"key\": \"customer_tier\",   \"value\": \"platinum\" },\n    { \"key\": \"support_plan\",    \"value\": \"premium\" },\n    { \"key\": \"organizations\",   \"value\": \"Google Search,YouTube,DeepMind\" },\n    { \"key\": \"headquarters\",    \"value\": \"Mountain View, CA\" },\n    { \"key\": \"founded\",         \"value\": \"2015\" },\n    { \"key\": \"employee_count\",  \"value\": \"190000\" }\n  ]\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"detail\": \"Tenant not found.\"}"
+            }
+          ]
+        },
+        {
+          "name": "Update Metadata — PATCH /tenants/:tenant_id/metadata",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metadata\": {\n    \"customer_tier\": \"enterprise-plus\",\n    \"support_plan\": \"enterprise\",\n    \"contract_expires\": \"2027-12-31\",\n    \"notes\": \"\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}{{api_v1}}/tenants/{{tenant_id}}/metadata",
+              "host": ["{{base_url}}{{api_v1}}"],
+              "path": ["tenants", "{{tenant_id}}", "metadata"]
+            },
+            "description": "Upsert metadata key-value pairs for the tenant.\n\n**Behaviour:**\n- Existing keys are **overwritten**.\n- New keys are **added**.\n- No keys are deleted by this operation. To clear a key set its value to `\"\"`.\n\nReturns `423 Locked` if the tenant is in `archived` state."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"tenant_id\": \"bdd640fb-0667-4ad1-9c80-317fa3b1799d\",\n  \"entries\": [\n    { \"key\": \"industry\",         \"value\": \"Technology\" },\n    { \"key\": \"company_size\",     \"value\": \"enterprise\" },\n    { \"key\": \"customer_tier\",    \"value\": \"enterprise-plus\" },\n    { \"key\": \"support_plan\",     \"value\": \"enterprise\" },\n    { \"key\": \"organizations\",    \"value\": \"Google Search,YouTube,DeepMind\" },\n    { \"key\": \"headquarters\",     \"value\": \"Mountain View, CA\" },\n    { \"key\": \"founded\",          \"value\": \"2015\" },\n    { \"key\": \"employee_count\",   \"value\": \"190000\" },\n    { \"key\": \"contract_expires\", \"value\": \"2027-12-31\" },\n    { \"key\": \"notes\",            \"value\": \"\" }\n  ]\n}"
+            },
+            {
+              "name": "423 Locked — tenant is archived",
+              "status": "Locked",
+              "code": 423,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"detail\": \"Tenant is archived. Write operations are not allowed.\"}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

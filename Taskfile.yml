@@ -9,7 +9,6 @@ vars:
   # IAM-specific components
   IAM_SERVICE: iam
 
-
 # =========================
 # CORE
 # =========================
@@ -87,6 +86,15 @@ tasks:
       - rm -f README.md LICENSE main.py pyproject.toml .env.example
     msg: "🧹 Clean reset done"
 
+# =========================
+# SYNC TODOs
+# =========================
+
+  todos:
+    sync:
+      cmds:
+        - python scripts/todo_manager.py --sync
+      desc: Synchronize all service-level TODOs to the root
 
 # =========================
 # SERVICE OPERATIONS

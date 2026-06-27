@@ -1,33 +1,20 @@
 # Implementation Order for Enterprise-Grade Multi-Tenant IAM + ABAC SaaS
 
-| Priority | Service                                    | Status         |
-| -------: | ------------------------------------------ | -------------- |
-|        1 | Identity & Access Management (IAM) Service | 🚧 In Progress |
-|        2 | Tenant Management Service                  | 📝 Planned     |
-|        3 | Organization Management Service            | 📝 Planned     |
-|        4 | User Management Service                    | 📝 Planned     |
-|        5 | Group Management Service                   | 📝 Planned     |
-|        6 | Membership Management Service              | 📝 Planned     |
-|        7 | Authentication Service                     | 📝 Planned     |
-|        8 | Session Management Service                 | 📝 Planned     |
-|        9 | Multi-Factor Authentication (MFA) Service  | 📝 Planned     |
-|       10 | Role Management Service                    | 📝 Planned     |
-|       11 | Permission Management Service              | 📝 Planned     |
-|       12 | Resource Registry Service                  | 📝 Planned     |
-|       13 | Attribute Management Service               | 📝 Planned     |
-|       14 | ABAC Policy Management Service             | 📝 Planned     |
-|       15 | Authorization Service                      | 📝 Planned     |
-|       16 | ABAC Policy Evaluation Engine Service      | 📝 Planned     |
-|       17 | Audit Logging Service                      | 📝 Planned     |
-|       18 | Activity Tracking Service                  | 📝 Planned     |
-|       19 | Health Check Service                       | 📝 Planned     |
-|       20 | Logging Service                            | 📝 Planned     |
-|       21 | Metrics Collection Service                 | 📝 Planned     |
-|       22 | Distributed Tracing Service                | 📝 Planned     |
-|       23 | Monitoring Service                         | 📝 Planned     |
-|       24 | Alerting Service                           | 📝 Planned     |
-|       25 | Observability Service                      | 📝 Planned     |
-
+| Priority | Service                           | Status          |
+| -------: | --------------------------------- | --------------- |
+|        1 | Tenant Management Service         | 📝 Planned      |
+|        2 | Organization Management Service   | 📝 Planned      |
+|        3 | Identity & Access Management (IAM) | 🚧 In Progress |
+|        4 | User Management Service           | 📝 Planned      |
+|        5 | Authentication Service            | 📝 Planned      |
+|        6 | Authorization Service             | 📝 Planned      |
+|        7 | ABAC Policy Management Service    | 📝 Planned      |
+|        8 | ABAC Policy Evaluation Engine     | 📝 Planned      |
+|        9 | Tenant Isolation Service          | 📝 Planned      |
+|       10 | Audit Logging Service             | 📝 Planned      |
+|       11 | Observability Service (Aggregate) | 📝 Planned      |
+|       12 | Health Check Service              | 📝 Planned      |
+```
 ## Why this order?
 
 | Order | Service                     | Primary Responsibility                                                        |

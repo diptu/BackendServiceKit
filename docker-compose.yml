@@ -69,3 +69,21 @@ services:
     env_file:
       - ../services/analytics/.env
     restart: unless-stopped
+
+  tenant-management:
+    build:
+      context: ./services/TenantManagement
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8000"
+    env_file:
+      - ./services/TenantManagement/.env
+    environment:
+      - ENVIRONMENT=development
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3

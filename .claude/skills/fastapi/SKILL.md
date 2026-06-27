@@ -3,6 +3,220 @@
 A practical guide to building scalable, secure, high-performance, and production-ready FastAPI applications.
 
 ---
+- **Execution**: Run `/fastapi <service_name>`.
+## 0: Organize the Project as Independent Services
+
+As the application grows, organize it into **domain-oriented services**. Each service owns its APIs, business logic, models, repositories, schemas, tests, documentation, and TODOs.
+
+### Recommended Project Structure
+
+```text
+.
+├── Dockerfile
+├── README.md
+├── TODO.md                          # Auto-generated master TODO
+├── pyproject.toml
+├── uv.lock
+├── alembic/
+├── alembic.ini
+│
+├── app/
+│   ├── main.py
+│   │
+│   ├── api/
+│   │   ├── router.py
+│   │   ├── __init__.py
+│   │   ├── v1/
+│   │   └── v2/
+│   │
+│   ├── core/
+│   │   ├── config.py
+│   │   ├── constants.py
+│   │   └── security.py
+│   │
+│   ├── domain/
+│   │   ├── enums.py
+│   │   ├── events.py
+│   │   └── exceptions.py
+│   │
+│   ├── infrastructure/
+│   │   ├── database/
+│   │   ├── notifications/
+│   │   └── security/
+│   │
+│   ├── consumers/
+│   │
+│   ├── services/
+│   │   │
+│   │   ├── tenant_management/
+│   │   │   ├── api/
+│   │   │   ├── models/
+│   │   │   ├── schemas/
+│   │   │   ├── repositories/
+│   │   │   ├── services/
+│   │   │   ├── validators/
+│   │   │   ├── dependencies/
+│   │   │   ├── events/
+│   │   │   ├── tests/
+│   │   │   ├── docs/
+│   │   │   ├── README.md
+│   │   │   └── TODO.md
+│   │   │
+│   │   ├── organization_management/
+│   │   ├── iam/
+│   │   ├── user_management/
+│   │   ├── authentication/
+│   │   ├── authorization/
+│   │   ├── abac_policy_management/
+│   │   ├── abac_policy_evaluation/
+│   │   ├── tenant_isolation/
+│   │   ├── audit_logging/
+│   │   ├── observability/
+│   │   ├── health_check/
+│   │   └── seed_data/
+│   │
+│   └── shared/
+│       ├── enums/
+│       ├── constants/
+│       ├── dto/
+│       ├── pagination/
+│       ├── validators/
+│       └── utils/
+│
+├── scripts/
+│   ├── bootstrap.sh
+│   ├── lint.sh
+│   ├── release.sh
+│   ├── fix.sh
+│   ├── test_db_connection.py
+│   └── todo_manager.py
+│
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   ├── e2e/
+│   └── performance/
+│
+├── logs/
+└── tmp/
+```
+
+### Standard Service Structure
+
+Every service should follow the same layout.
+
+```text
+tenant_management/
+│
+├── api/
+│   ├── router.py
+│   ├── endpoints/
+│   └── dependencies.py
+│
+├── models/
+├── schemas/
+├── repositories/
+├── services/
+├── validators/
+├── dependencies/
+├── events/
+├── tests/
+├── docs/
+├── README.md
+└── TODO.md
+```
+
+### Service Responsibilities
+
+Each service should own:
+
+* API routes
+* Business logic
+* Database models
+* Repository layer
+* Pydantic schemas
+* Validation
+* Dependencies
+* Domain events
+* Tests
+* Documentation
+* TODO list
+
+Avoid placing unrelated business logic into another service.
+
+### Shared Components
+
+Only reusable, cross-cutting code belongs in shared locations.
+
+Examples include:
+
+* Common DTOs
+* Pagination
+* Generic validators
+* Utility functions
+* Shared enums
+* Shared constants
+
+Business-specific code should never live in shared modules.
+
+### Documentation
+
+Every service should include:
+
+```text
+README.md
+```
+
+Describing:
+
+* Purpose
+* Responsibilities
+* API endpoints
+* Dependencies
+* Events
+* Architecture
+
+and
+
+```text
+TODO.md
+```
+
+Containing:
+
+* Current tasks
+* Planned work
+* Technical debt
+* Future enhancements
+
+The project-level `TODO.md` should be generated automatically by aggregating all service TODO files:
+
+```bash
+python scripts/todo_manager.py --sync
+```
+
+### Development Workflow
+
+For every new service:
+
+1. Create the service directory.
+2. Create the standard folder structure.
+3. Write `README.md`.
+4. Create `TODO.md`.
+5. Register API routes.
+6. Implement models.
+7. Implement repositories.
+8. Implement business services.
+9. Implement schemas.
+10. Implement validators.
+11. Write unit and integration tests.
+12. Register seed data.
+13. Update documentation.
+14. Synchronize the master TODO.
+
+```bash
+python scripts/todo_manager.py --sync
+```
 
 # 1. Concurrency Architecture & Async Rules
 
