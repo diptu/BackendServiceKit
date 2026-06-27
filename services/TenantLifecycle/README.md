@@ -23,12 +23,18 @@ Handles the state transitions of a tenant throughout its lifecycle.
 ## Tenant State Machine
 
 ```text
+draft 
+   |
+   v
+provisioning 
+   |
+   v
 Pending
    |
    v
 Active
    |
-   +----> Suspended
+   +----> Suspended ---->  active (for reactivation)
    |
    +----> Locked
    |
@@ -41,13 +47,13 @@ Active
 
 | Method | Endpoint |
 |----------|----------|
-| POST | `/tenant-lifecycle/{tenant_id}/activate` |
-| POST | `/tenant-lifecycle/{tenant_id}/suspend` |
-| POST | `/tenant-lifecycle/{tenant_id}/lock` |
-| POST | `/tenant-lifecycle/{tenant_id}/archive` |
-| POST | `/tenant-lifecycle/{tenant_id}/reactivate` |
-| POST | `/tenant-lifecycle/{tenant_id}/delete` |
-| GET | `/tenant-lifecycle/{tenant_id}/history` |
+| PUT | `/tenant-lifecycle/{tenant_id}/activate` |
+| PUT | `/tenant-lifecycle/{tenant_id}/suspend` |
+| PUT | `/tenant-lifecycle/{tenant_id}/lock` |
+| PUT | `/tenant-lifecycle/{tenant_id}/archive` |
+| PUT | `/tenant-lifecycle/{tenant_id}/reactivate` |
+| PUT | `/tenant-lifecycle/{tenant_id}/delete` |
+| PUT | `/tenant-lifecycle/{tenant_id}/history` |
 
 ## Example Events
 
