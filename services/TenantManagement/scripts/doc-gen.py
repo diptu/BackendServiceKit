@@ -342,12 +342,9 @@ def main() -> None:
     parser.add_argument("--scope", choices=["public", "internal"], required=True)
     args = parser.parse_args()
 
-    # Resolve service directory — works whether run from service root or repo root
-    script_dir = Path(__file__).resolve().parent
-    service_dir = script_dir.parent
-    if service_dir.name != args.service:
-        # Running from repo root or elsewhere
-        service_dir = Path(__file__).resolve().parents[3] / "services" / args.service
+    # Resolve service directory: always the parent of the scripts/ folder.
+    # The service name arg is used for display only, not path resolution.
+    service_dir = Path(__file__).resolve().parent.parent
     if not service_dir.is_dir():
         print(f"ERROR: service directory not found: {service_dir}", file=sys.stderr)
         sys.exit(1)
