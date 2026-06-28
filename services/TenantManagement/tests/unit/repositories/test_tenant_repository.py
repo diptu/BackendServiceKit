@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
+
+from datetime import datetime, timezone
+from uuid import uuid4
+
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -20,19 +25,19 @@ _SESSION_FACTORY = async_sessionmaker(_ENGINE, expire_on_commit=False)
 
 
 @pytest.fixture(autouse=True)
-async def setup_db() -> None:
+async def setup_db() -> AsyncGenerator[None, None]:
     """Create all tables before each test and drop them after."""
     async with _ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    yield  # type: ignore[misc]
+    yield
     async with _ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture
-async def session() -> AsyncSession:
+async def session() -> AsyncGenerator[AsyncSession, None]:
     async with _SESSION_FACTORY() as s:
-        yield s  # type: ignore[misc]
+        yield s
 
 
 @pytest.fixture
@@ -43,9 +48,6 @@ async def repo(session: AsyncSession) -> TenantRepository:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-from uuid import UUID, uuid4
-from datetime import datetime, timezone
 
 
 def make_tenant(

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
+from typing import Any
+
 from uuid import UUID, uuid4
 
 import pytest
@@ -22,10 +25,10 @@ _ENGINE = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
 _SESSION_FACTORY = async_sessionmaker(_ENGINE, expire_on_commit=False)
 
 
-async def _override_get_db() -> AsyncSession:
+async def _override_get_db() -> AsyncGenerator[AsyncSession, None]:
     async with _SESSION_FACTORY() as session:
         try:
-            yield session  # type: ignore[misc]
+            yield session
             await session.commit()
         except Exception:
             await session.rollback()
@@ -33,19 +36,21 @@ async def _override_get_db() -> AsyncSession:
 
 
 @pytest.fixture(autouse=True)
-async def setup_db() -> None:
+async def setup_db() -> AsyncGenerator[None, None]:
     async with _ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    yield  # type: ignore[misc]
+    yield
     async with _ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture
-async def client() -> AsyncClient:
+async def client() -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides[get_db] = _override_get_db
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        yield c  # type: ignore[misc]
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        yield c
     app.dependency_overrides.clear()
 
 
@@ -57,7 +62,7 @@ _BASE = "/api/v1/tenants"
 _OWNER = str(uuid4())
 
 
-async def _create(client: AsyncClient, name: str = "acme-corp") -> dict:
+async def _create(client: AsyncClient, name: str = "acme-corp") -> dict[str, Any]:
     resp = await client.post(
         _BASE,
         json={
@@ -72,7 +77,8 @@ async def _create(client: AsyncClient, name: str = "acme-corp") -> dict:
         },
     )
     assert resp.status_code == 201, resp.text
-    return resp.json()
+    data: dict[str, Any] = resp.json()
+    return data
 
 
 async def _force_status(tenant_id: str, status: str) -> None:
@@ -90,14 +96,18 @@ async def _force_status(tenant_id: str, status: str) -> None:
 
 async def test_update_display_name(client: AsyncClient) -> None:
     tid = (await _create(client))["id"]
-    resp = await client.patch(f"{_BASE}/{tid}", json={"display_name": "Acme Corp (Updated)"})
+    resp = await client.patch(
+        f"{_BASE}/{tid}", json={"display_name": "Acme Corp (Updated)"}
+    )
     assert resp.status_code == 200
     assert resp.json()["display_name"] == "Acme Corp (Updated)"
 
 
 async def test_update_description(client: AsyncClient) -> None:
     tid = (await _create(client))["id"]
-    resp = await client.patch(f"{_BASE}/{tid}", json={"description": "New description."})
+    resp = await client.patch(
+        f"{_BASE}/{tid}", json={"description": "New description."}
+    )
     assert resp.status_code == 200
     assert resp.json()["description"] == "New description."
 
@@ -134,7 +144,11 @@ async def test_update_multiple_fields(client: AsyncClient) -> None:
     tid = (await _create(client))["id"]
     resp = await client.patch(
         f"{_BASE}/{tid}",
-        json={"display_name": "New Name", "region": "ap-southeast-1", "currency": "SGD"},
+        json={
+            "display_name": "New Name",
+            "region": "ap-southeast-1",
+            "currency": "SGD",
+        },
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -160,19 +174,25 @@ async def test_update_empty_body_is_noop(client: AsyncClient) -> None:
 async def test_update_does_not_change_name(client: AsyncClient) -> None:
     """name (slug) is immutable — passing it in the body should not change it."""
     created = await _create(client)
-    resp = await client.patch(f"{_BASE}/{created['id']}", json={"display_name": "Changed"})
+    resp = await client.patch(
+        f"{_BASE}/{created['id']}", json={"display_name": "Changed"}
+    )
     assert resp.json()["name"] == "acme-corp"
 
 
 async def test_update_does_not_change_id(client: AsyncClient) -> None:
     created = await _create(client)
-    resp = await client.patch(f"{_BASE}/{created['id']}", json={"display_name": "Changed"})
+    resp = await client.patch(
+        f"{_BASE}/{created['id']}", json={"display_name": "Changed"}
+    )
     assert resp.json()["id"] == created["id"]
 
 
 async def test_update_does_not_change_created_at(client: AsyncClient) -> None:
     created = await _create(client)
-    resp = await client.patch(f"{_BASE}/{created['id']}", json={"display_name": "Changed"})
+    resp = await client.patch(
+        f"{_BASE}/{created['id']}", json={"display_name": "Changed"}
+    )
     assert resp.json()["created_at"] == created["created_at"]
 
 
@@ -181,7 +201,9 @@ async def test_update_does_not_change_created_at(client: AsyncClient) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_update_display_name_empty_string_returns_422(client: AsyncClient) -> None:
+async def test_update_display_name_empty_string_returns_422(
+    client: AsyncClient,
+) -> None:
     tid = (await _create(client))["id"]
     resp = await client.patch(f"{_BASE}/{tid}", json={"display_name": ""})
     assert resp.status_code == 422
@@ -228,10 +250,22 @@ async def test_update_invalid_uuid_returns_422(client: AsyncClient) -> None:
 
 async def test_update_response_shape(client: AsyncClient) -> None:
     tid = (await _create(client))["id"]
-    body = (await client.patch(f"{_BASE}/{tid}", json={"display_name": "Changed"})).json()
+    body = (
+        await client.patch(f"{_BASE}/{tid}", json={"display_name": "Changed"})
+    ).json()
     for key in (
-        "id", "name", "display_name", "description",
-        "status", "region", "timezone", "locale", "currency",
-        "owner_id", "created_at", "updated_at", "deleted_at",
+        "id",
+        "name",
+        "display_name",
+        "description",
+        "status",
+        "region",
+        "timezone",
+        "locale",
+        "currency",
+        "owner_id",
+        "created_at",
+        "updated_at",
+        "deleted_at",
     ):
         assert key in body, f"missing key: {key!r}"

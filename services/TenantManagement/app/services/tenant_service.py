@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.commands import CreateTenantCmd, UpdateTenantCmd
 from app.domain.enums import TenantStatus, VALID_TRANSITIONS
 from app.domain.events import (
     TenantActivated,
@@ -27,14 +28,13 @@ from app.domain.exceptions import (
     TenantNameConflictError,
     TenantNotFoundError,
 )
-from app.models.tenant import Tenant
-from app.models.tenant_contact import TenantContact
-from app.models.tenant_settings import TenantSettings
-from app.repositories.base import PageResult
-from app.repositories.tenant import TenantFilter, TenantRepository
-from app.repositories.tenant_contact import TenantContactRepository
-from app.repositories.tenant_settings import TenantSettingsRepository
-from app.schemas.tenant import CreateTenantRequest, UpdateTenantRequest
+from app.infrastructure.database.models.tenant import Tenant
+from app.infrastructure.database.models.tenant_contact import TenantContact
+from app.infrastructure.database.models.tenant_settings import TenantSettings
+from app.infrastructure.repositories.base import PageResult
+from app.infrastructure.repositories.tenant import TenantFilter, TenantRepository
+from app.infrastructure.repositories.tenant_contact import TenantContactRepository
+from app.infrastructure.repositories.tenant_settings import TenantSettingsRepository
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,9 @@ _SYSTEM_ACTOR = UUID("00000000-0000-0000-0000-000000000000")
 
 def _emit(event: Any) -> None:
     """Log a domain event. Replaced by a message broker in production."""
-    logger.debug("domain_event", extra={"event_type": type(event).__name__, **asdict(event)})
+    logger.debug(
+        "domain_event", extra={"event_type": type(event).__name__, **asdict(event)}
+    )
 
 
 class TenantService:
@@ -62,20 +64,20 @@ class TenantService:
     # CRUD
     # ------------------------------------------------------------------
 
-    async def create(self, request: CreateTenantRequest) -> Tenant:
+    async def create(self, cmd: CreateTenantCmd) -> Tenant:
         """Atomically provision a new tenant with its default settings and initial owner.
 
         Three rows are written in a single transaction:
         1. ``Tenant``        — master record, starts in ``draft`` state.
-        2. ``TenantSettings``— seeded from the request's timezone/locale/currency.
+        2. ``TenantSettings``— seeded from the command's timezone/locale/currency.
         3. ``TenantContact`` — the ``owner_id`` as the first ``owner``-role contact.
 
         Raises:
             TenantNameConflictError: if the slug is already taken (including
                 soft-deleted tenants, whose slugs remain reserved).
         """
-        if await self._repo.exists_by_name(request.name):
-            raise TenantNameConflictError(request.name)
+        if await self._repo.exists_by_name(cmd.name):
+            raise TenantNameConflictError(cmd.name)
 
         now = datetime.now(timezone.utc)
         tenant_id = uuid4()
@@ -83,30 +85,30 @@ class TenantService:
         # 1 — Tenant row
         tenant = Tenant(
             id=tenant_id,
-            name=request.name,
-            display_name=request.display_name,
-            description=request.description,
+            name=cmd.name,
+            display_name=cmd.display_name,
+            description=cmd.description,
             status=TenantStatus.DRAFT,
-            region=request.region,
-            timezone=request.timezone,
-            locale=request.locale,
-            currency=request.currency,
-            owner_id=request.owner_id,
+            region=cmd.region,
+            timezone=cmd.timezone,
+            locale=cmd.locale,
+            currency=cmd.currency,
+            owner_id=cmd.owner_id,
             created_at=now,
             updated_at=now,
         )
         tenant = await self._repo.create(tenant)
 
-        # 2 — Default TenantSettings (seeded from request values so the
+        # 2 — Default TenantSettings (seeded from command values so the
         #     settings row reflects the same timezone/locale/currency as the
         #     tenant record without a separate PATCH call).
         await self._settings_repo.create(
             TenantSettings(
                 id=uuid4(),
                 tenant_id=tenant_id,
-                timezone=request.timezone,
-                locale=request.locale,
-                currency=request.currency,
+                timezone=cmd.timezone,
+                locale=cmd.locale,
+                currency=cmd.currency,
             )
         )
 
@@ -115,7 +117,7 @@ class TenantService:
             TenantContact(
                 id=uuid4(),
                 tenant_id=tenant_id,
-                user_id=request.owner_id,
+                user_id=cmd.owner_id,
                 role="owner",
                 added_at=now,
             )
@@ -154,12 +156,19 @@ class TenantService:
             filters = TenantFilter(status=status, region=region, search=search)
         return await self._repo.list(filters=filters, cursor=cursor, limit=limit)
 
-    async def update(self, tenant_id: UUID, request: UpdateTenantRequest) -> Tenant:
+    async def update(self, tenant_id: UUID, cmd: UpdateTenantCmd) -> Tenant:
         tenant = await self._require_writable(tenant_id)
 
         changed: list[str] = []
-        for field_name in ("display_name", "description", "region", "timezone", "locale", "currency"):
-            new_val = getattr(request, field_name)
+        for field_name in (
+            "display_name",
+            "description",
+            "region",
+            "timezone",
+            "locale",
+            "currency",
+        ):
+            new_val = getattr(cmd, field_name)
             if new_val is not None and getattr(tenant, field_name) != new_val:
                 setattr(tenant, field_name, new_val)
                 changed.append(field_name)
@@ -223,7 +232,11 @@ class TenantService:
         tenant.status = TenantStatus.SUSPENDED
         tenant.updated_at = datetime.now(timezone.utc)
         tenant = await self._repo.save(tenant)
-        _emit(TenantSuspended(tenant_id=tenant.id, suspended_by=_SYSTEM_ACTOR, reason=reason))
+        _emit(
+            TenantSuspended(
+                tenant_id=tenant.id, suspended_by=_SYSTEM_ACTOR, reason=reason
+            )
+        )
         return tenant
 
     async def archive(self, tenant_id: UUID, reason: str | None = None) -> Tenant:

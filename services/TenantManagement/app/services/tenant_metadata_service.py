@@ -7,12 +7,12 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.commands import UpdateTenantMetadataCmd
 from app.domain.enums import TenantStatus
 from app.domain.exceptions import TenantLockedError, TenantNotFoundError
-from app.models.tenant_metadata import TenantMetadata
-from app.repositories.tenant import TenantRepository
-from app.repositories.tenant_metadata import TenantMetadataRepository
-from app.schemas.tenant import UpdateTenantMetadataRequest
+from app.infrastructure.database.models.tenant_metadata import TenantMetadata
+from app.infrastructure.repositories.tenant import TenantRepository
+from app.infrastructure.repositories.tenant_metadata import TenantMetadataRepository
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class TenantMetadataService:
         return await self._metadata_repo.get_all_for_tenant(tenant_id)
 
     async def update_metadata(
-        self, tenant_id: UUID, request: UpdateTenantMetadataRequest
+        self, tenant_id: UUID, cmd: UpdateTenantMetadataCmd
     ) -> list[TenantMetadata]:
         tenant = await self._tenant_repo.get_by_id(tenant_id)
         if tenant is None:
@@ -40,5 +40,5 @@ class TenantMetadataService:
         if TenantStatus(tenant.status) == TenantStatus.ARCHIVED:
             raise TenantLockedError(tenant_id)
 
-        await self._metadata_repo.upsert_many(tenant_id, request.metadata)
+        await self._metadata_repo.upsert_many(tenant_id, cmd.metadata)
         return await self._metadata_repo.get_all_for_tenant(tenant_id)

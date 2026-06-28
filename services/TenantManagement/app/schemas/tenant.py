@@ -234,7 +234,9 @@ class TenantListResponse(AppBaseModel):
     """Paginated list of tenants."""
 
     items: list[TenantSummary]
-    total: int = Field(..., description="Total number of tenants matching the filter.", examples=[42])
+    total: int = Field(
+        ..., description="Total number of tenants matching the filter.", examples=[42]
+    )
     next_cursor: str | None = Field(
         default=None,
         description="Opaque cursor for the next page. `null` when no more pages.",

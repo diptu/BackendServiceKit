@@ -80,11 +80,7 @@ _TENANT_ID_EXAMPLE = "550e8400-e29b-41d4-a716-446655440000"
 
 R_401: dict[str, Any] = {
     "description": "Unauthorized — missing or invalid bearer token.",
-    "content": {
-        "application/json": {
-            "example": {"detail": "Not authenticated."}
-        }
-    },
+    "content": {"application/json": {"example": {"detail": "Not authenticated."}}},
 }
 
 R_403: dict[str, Any] = {
@@ -115,7 +111,9 @@ R_409_CONFLICT: dict[str, Any] = {
             "examples": {
                 "name_conflict": {
                     "summary": "Tenant name already taken",
-                    "value": {"detail": "Tenant name 'alphabet-corp' is already taken."},
+                    "value": {
+                        "detail": "Tenant name 'alphabet-corp' is already taken."
+                    },
                 },
                 "invalid_transition": {
                     "summary": "Invalid state transition",
@@ -141,13 +139,13 @@ R_423: dict[str, Any] = {
 }
 
 # Common bundles for convenience
-RESPONSES_READ: dict[int, dict[str, Any]] = {
+RESPONSES_READ: dict[int | str, dict[str, Any]] = {
     401: R_401,
     403: R_403,
     404: R_404,
 }
 
-RESPONSES_WRITE: dict[int, dict[str, Any]] = {
+RESPONSES_WRITE: dict[int | str, dict[str, Any]] = {
     401: R_401,
     403: R_403,
     404: R_404,
@@ -155,13 +153,13 @@ RESPONSES_WRITE: dict[int, dict[str, Any]] = {
     423: R_423,
 }
 
-RESPONSES_CREATE: dict[int, dict[str, Any]] = {
+RESPONSES_CREATE: dict[int | str, dict[str, Any]] = {
     401: R_401,
     403: R_403,
     409: R_409_CONFLICT,
 }
 
-RESPONSES_TRANSITION: dict[int, dict[str, Any]] = {
+RESPONSES_TRANSITION: dict[int | str, dict[str, Any]] = {
     401: R_401,
     403: R_403,
     404: R_404,

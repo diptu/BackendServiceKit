@@ -1,19 +1,17 @@
-"""Repository layer for the Tenant Management Service."""
+"""Backward-compatibility shim — canonical definitions moved to app.infrastructure.repositories."""
 
-from app.repositories.base import BaseRepository, PageResult, decode_cursor, encode_cursor
-from app.repositories.tenant import TenantFilter, TenantRepository
-from app.repositories.tenant_contact import TenantContactRepository
-from app.repositories.tenant_metadata import TenantMetadataRepository
-from app.repositories.tenant_settings import TenantSettingsRepository
-
-__all__ = [
-    "BaseRepository",
-    "PageResult",
-    "decode_cursor",
-    "encode_cursor",
-    "TenantFilter",
-    "TenantRepository",
-    "TenantContactRepository",
-    "TenantMetadataRepository",
-    "TenantSettingsRepository",
-]
+from app.infrastructure.repositories.base import BaseRepository as BaseRepository
+from app.infrastructure.repositories.base import PageResult as PageResult
+from app.infrastructure.repositories.base import decode_cursor as decode_cursor
+from app.infrastructure.repositories.base import encode_cursor as encode_cursor
+from app.infrastructure.repositories.tenant import TenantFilter as TenantFilter
+from app.infrastructure.repositories.tenant import TenantRepository as TenantRepository
+from app.infrastructure.repositories.tenant_contact import (
+    TenantContactRepository as TenantContactRepository,
+)
+from app.infrastructure.repositories.tenant_metadata import (
+    TenantMetadataRepository as TenantMetadataRepository,
+)
+from app.infrastructure.repositories.tenant_settings import (
+    TenantSettingsRepository as TenantSettingsRepository,
+)

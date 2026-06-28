@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+tests/
+*.egg-info/
+.git/
+.env
+.env.*
+!.env.example
+*.sqlite
+*.db
+# docs build artefacts (rebuilt inside the container)
+site/

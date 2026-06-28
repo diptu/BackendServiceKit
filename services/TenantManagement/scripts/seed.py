@@ -196,10 +196,18 @@ def _print_dry_run(rng: random.Random) -> None:
         admins = sum(1 for c in contacts if c["role"] == "admin")
 
         print(f"\n  {_C.CYAN}{_C.BOLD}{entry['display_name']}{_C.RESET}")
-        _plan(f"tenant    {_C.BOLD}{slug}{_C.RESET}  → id={_uuid(rng)}  region={entry['region']}")
-        _plan(f"settings  {_C.BOLD}{slug}{_C.RESET}  → theme={entry['settings']['default_theme']}  timeout={entry['settings']['session_timeout_minutes']}m")
-        _plan(f"metadata  {_C.BOLD}{slug}{_C.RESET}  → {len(entry['metadata'])} keys  ({', '.join(list(entry['metadata'])[:3])}, …)")
-        _plan(f"contacts  {_C.BOLD}{slug}{_C.RESET}  → {owners} owners, {admins} admins")
+        _plan(
+            f"tenant    {_C.BOLD}{slug}{_C.RESET}  → id={_uuid(rng)}  region={entry['region']}"
+        )
+        _plan(
+            f"settings  {_C.BOLD}{slug}{_C.RESET}  → theme={entry['settings']['default_theme']}  timeout={entry['settings']['session_timeout_minutes']}m"
+        )
+        _plan(
+            f"metadata  {_C.BOLD}{slug}{_C.RESET}  → {len(entry['metadata'])} keys  ({', '.join(list(entry['metadata'])[:3])}, …)"
+        )
+        _plan(
+            f"contacts  {_C.BOLD}{slug}{_C.RESET}  → {owners} owners, {admins} admins"
+        )
 
     print(
         f"\n  {_C.YELLOW}Dry-run — no changes were written to the database.{_C.RESET}\n"
@@ -221,12 +229,10 @@ async def _seed_tenant(
     from app.models.tenant import Tenant
     from app.domain.enums import TenantStatus
 
-    row = await session.scalar(
-        select(Tenant.id).where(Tenant.name == entry["slug"])
-    )
+    row = await session.scalar(select(Tenant.id).where(Tenant.name == entry["slug"]))
     if row is not None:
         _skip(f"tenant    {_C.BOLD}{entry['slug']}{_C.RESET}")
-        return row
+        return uuid.UUID(str(row))
 
     tenant_id = _uuid(rng)
     owner_id = _uuid(rng)
@@ -391,7 +397,9 @@ async def _reset_seed_data(session: Any) -> None:
     await session.commit()
 
     for slug in found:
-        _ok(f"deleted   {_C.BOLD}{slug}{_C.RESET}  (settings, metadata, contacts cascaded)")
+        _ok(
+            f"deleted   {_C.BOLD}{slug}{_C.RESET}  (settings, metadata, contacts cascaded)"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -459,7 +467,6 @@ async def _run(args: argparse.Namespace) -> None:
 
     try:
         async with SessionFactory() as session:
-
             if args.reset:
                 _section("Reset")
                 await _reset_seed_data(session)

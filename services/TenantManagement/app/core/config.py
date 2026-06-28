@@ -26,7 +26,9 @@ class Settings(BaseSettings):
     app_name: str = "nutratenant-tenant-management"
     app_version: str = "0.1.0"
 
-    environment: Literal["development", "testing", "staging", "production"] = "development"
+    environment: Literal["development", "testing", "staging", "production"] = (
+        "development"
+    )
 
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
@@ -56,7 +58,11 @@ class Settings(BaseSettings):
 
     # CORS
     cors_allow_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:3000", "http://localhost:8001"]
+        default_factory=lambda: [
+            "http://localhost:3000",
+            "http://localhost:8000",  # APIGateway
+            "http://localhost:8002",  # TenantLifecycle
+        ]
     )
 
     # Observability

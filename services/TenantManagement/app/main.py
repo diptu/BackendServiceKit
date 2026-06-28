@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.logging import configure_logging
+from app.core.middleware import RequestContextMiddleware
 from app.core.openapi import TAGS_METADATA
 from app.domain.exceptions import (
     InvalidTenantTransitionError,
@@ -163,6 +164,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(RequestContextMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_allow_origins,
@@ -185,17 +187,23 @@ async def _tenant_not_found(_: Request, exc: TenantNotFoundError) -> JSONRespons
 
 
 @app.exception_handler(TenantNameConflictError)
-async def _tenant_name_conflict(_: Request, exc: TenantNameConflictError) -> JSONResponse:
+async def _tenant_name_conflict(
+    _: Request, exc: TenantNameConflictError
+) -> JSONResponse:
     return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
 @app.exception_handler(TenantSlugConflictError)
-async def _tenant_slug_conflict(_: Request, exc: TenantSlugConflictError) -> JSONResponse:
+async def _tenant_slug_conflict(
+    _: Request, exc: TenantSlugConflictError
+) -> JSONResponse:
     return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
 @app.exception_handler(InvalidTenantTransitionError)
-async def _invalid_transition(_: Request, exc: InvalidTenantTransitionError) -> JSONResponse:
+async def _invalid_transition(
+    _: Request, exc: InvalidTenantTransitionError
+) -> JSONResponse:
     return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
@@ -210,10 +218,14 @@ async def _owner_required(_: Request, exc: TenantOwnerRequiredError) -> JSONResp
 
 
 @app.exception_handler(TenantContactConflictError)
-async def _contact_conflict(_: Request, exc: TenantContactConflictError) -> JSONResponse:
+async def _contact_conflict(
+    _: Request, exc: TenantContactConflictError
+) -> JSONResponse:
     return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
 @app.exception_handler(TenantContactNotFoundError)
-async def _contact_not_found(_: Request, exc: TenantContactNotFoundError) -> JSONResponse:
+async def _contact_not_found(
+    _: Request, exc: TenantContactNotFoundError
+) -> JSONResponse:
     return JSONResponse(status_code=404, content={"detail": str(exc)})

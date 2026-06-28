@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
+from typing import Any
+
 from uuid import uuid4
 
 import pytest
@@ -21,10 +24,10 @@ _ENGINE = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
 _SESSION_FACTORY = async_sessionmaker(_ENGINE, expire_on_commit=False)
 
 
-async def _override_get_db() -> AsyncSession:
+async def _override_get_db() -> AsyncGenerator[AsyncSession, None]:
     async with _SESSION_FACTORY() as session:
         try:
-            yield session  # type: ignore[misc]
+            yield session
             await session.commit()
         except Exception:
             await session.rollback()
@@ -32,19 +35,21 @@ async def _override_get_db() -> AsyncSession:
 
 
 @pytest.fixture(autouse=True)
-async def setup_db() -> None:
+async def setup_db() -> AsyncGenerator[None, None]:
     async with _ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    yield  # type: ignore[misc]
+    yield
     async with _ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture
-async def client() -> AsyncClient:
+async def client() -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides[get_db] = _override_get_db
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        yield c  # type: ignore[misc]
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        yield c
     app.dependency_overrides.clear()
 
 
@@ -56,7 +61,9 @@ _BASE = "/api/v1/tenants"
 _OWNER = str(uuid4())
 
 
-async def _create(client: AsyncClient, name: str, region: str = "us-east-1") -> dict:
+async def _create(
+    client: AsyncClient, name: str, region: str = "us-east-1"
+) -> dict[str, Any]:
     resp = await client.post(
         _BASE,
         json={
@@ -70,7 +77,8 @@ async def _create(client: AsyncClient, name: str, region: str = "us-east-1") -> 
         },
     )
     assert resp.status_code == 201, resp.text
-    return resp.json()
+    data: dict[str, Any] = resp.json()
+    return data
 
 
 # ---------------------------------------------------------------------------
@@ -139,7 +147,11 @@ async def test_list_cursor_next_page(client: AsyncClient) -> None:
         await _create(client, f"tenant-{i:02d}")
     first = (await client.get(_BASE, params={"limit": 2})).json()
     assert first["has_more"] is True
-    second = (await client.get(_BASE, params={"limit": 2, "next_cursor": first["next_cursor"]})).json()
+    second = (
+        await client.get(
+            _BASE, params={"limit": 2, "next_cursor": first["next_cursor"]}
+        )
+    ).json()
     assert len(second["items"]) == 1
     assert second["has_more"] is False
     # No overlap between pages

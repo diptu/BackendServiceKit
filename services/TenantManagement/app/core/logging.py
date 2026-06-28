@@ -3,6 +3,10 @@
 Call ``configure_logging()`` once at service startup (inside the lifespan
 handler). Every log record is emitted as a single-line JSON object to stdout,
 which is the format expected by log aggregators (Fluent Bit, Logstash, etc.).
+
+The formatter automatically includes the ``request_id`` from the current async
+context (set by ``app.core.middleware.RequestContextMiddleware``) so every log
+line is fully traceable without any manual instrumentation at call sites.
 """
 
 from __future__ import annotations
@@ -12,17 +16,58 @@ import logging
 import sys
 from typing import Any
 
+from app.core.middleware import request_id_ctx
+
 
 class _JSONFormatter(logging.Formatter):
-    """Emit one compact JSON object per log record."""
+    """Emit one compact JSON object per log record.
+
+    Fields emitted on every line:
+
+    - ``time``       — ISO-8601 timestamp
+    - ``level``      — log level name
+    - ``logger``     — logger name (module path)
+    - ``request_id`` — UUID set by ``RequestContextMiddleware``; ``"-"`` outside requests
+    - ``message``    — formatted log message
+    - ``exc``        — formatted exception (only when present)
+    - any ``extra={}`` keys passed to the logging call
+    """
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
             "time": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
             "level": record.levelname,
             "logger": record.name,
+            "request_id": request_id_ctx.get(),
             "message": record.getMessage(),
         }
+        # Merge any extra={} keys the caller passed in.
+        for key, value in record.__dict__.items():
+            if key not in {
+                "args",
+                "created",
+                "exc_info",
+                "exc_text",
+                "filename",
+                "funcName",
+                "levelname",
+                "levelno",
+                "lineno",
+                "message",
+                "module",
+                "msecs",
+                "msg",
+                "name",
+                "pathname",
+                "process",
+                "processName",
+                "relativeCreated",
+                "stack_info",
+                "taskName",
+                "thread",
+                "threadName",
+            }:
+                payload.setdefault(key, value)
         if record.exc_info:
             payload["exc"] = self.formatException(record.exc_info)
         return json.dumps(payload, ensure_ascii=False)

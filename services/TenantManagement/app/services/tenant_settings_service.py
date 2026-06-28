@@ -9,13 +9,13 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.commands import UpdateTenantSettingsCmd
 from app.domain.enums import TenantStatus
 from app.domain.events import TenantConfigurationUpdated
 from app.domain.exceptions import TenantLockedError, TenantNotFoundError
-from app.models.tenant_settings import TenantSettings
-from app.repositories.tenant import TenantRepository
-from app.repositories.tenant_settings import TenantSettingsRepository
-from app.schemas.tenant import UpdateTenantSettingsRequest
+from app.infrastructure.database.models.tenant_settings import TenantSettings
+from app.infrastructure.repositories.tenant import TenantRepository
+from app.infrastructure.repositories.tenant_settings import TenantSettingsRepository
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,9 @@ _SYSTEM_ACTOR = UUID("00000000-0000-0000-0000-000000000000")
 
 
 def _emit(event: Any) -> None:
-    logger.debug("domain_event", extra={"event_type": type(event).__name__, **asdict(event)})
+    logger.debug(
+        "domain_event", extra={"event_type": type(event).__name__, **asdict(event)}
+    )
 
 
 class TenantSettingsService:
@@ -44,7 +46,7 @@ class TenantSettingsService:
         return settings
 
     async def update(
-        self, tenant_id: UUID, request: UpdateTenantSettingsRequest
+        self, tenant_id: UUID, cmd: UpdateTenantSettingsCmd
     ) -> TenantSettings:
         tenant = await self._tenant_repo.get_by_id(tenant_id)
         if tenant is None:
@@ -69,13 +71,17 @@ class TenantSettingsService:
             "session_timeout_minutes",
             "default_theme",
         ):
-            new_val = getattr(request, field_name)
+            new_val = getattr(cmd, field_name)
             if new_val is not None and getattr(settings, field_name) != new_val:
                 setattr(settings, field_name, new_val)
                 changed = True
 
         if changed:
             settings = await self._settings_repo.save(settings)
-            _emit(TenantConfigurationUpdated(tenant_id=tenant_id, updated_by=_SYSTEM_ACTOR))
+            _emit(
+                TenantConfigurationUpdated(
+                    tenant_id=tenant_id, updated_by=_SYSTEM_ACTOR
+                )
+            )
 
         return settings

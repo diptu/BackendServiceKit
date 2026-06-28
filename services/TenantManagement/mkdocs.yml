@@ -1,0 +1,41 @@
+site_name: TenantManagement Service
+site_description: Internal technical reference for the TenantManagement Service
+docs_dir: docs/internal
+site_dir: site
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Overview: index.md
+  - API Reference: api-reference.md
+  - Planning:
+    - Functional Requirements: planning/FunctionalRequirements.md
+    - Non-Functional Requirements: planning/NonFunctionalRequirements.md
+    - Business Logic: planning/BusinessLogic.md
+    - Tenant States: planning/TenentStates.md
+    - Tenant Lifecycle: planning/TenentLifecycle.md
+    - Implementation Steps: planning/ImplemetationSteps.md
+

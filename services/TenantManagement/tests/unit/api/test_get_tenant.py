@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
+from typing import Any
+
 from uuid import UUID, uuid4
 
 import pytest
@@ -22,10 +25,10 @@ _ENGINE = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
 _SESSION_FACTORY = async_sessionmaker(_ENGINE, expire_on_commit=False)
 
 
-async def _override_get_db() -> AsyncSession:
+async def _override_get_db() -> AsyncGenerator[AsyncSession, None]:
     async with _SESSION_FACTORY() as session:
         try:
-            yield session  # type: ignore[misc]
+            yield session
             await session.commit()
         except Exception:
             await session.rollback()
@@ -33,19 +36,21 @@ async def _override_get_db() -> AsyncSession:
 
 
 @pytest.fixture(autouse=True)
-async def setup_db() -> None:
+async def setup_db() -> AsyncGenerator[None, None]:
     async with _ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    yield  # type: ignore[misc]
+    yield
     async with _ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture
-async def client() -> AsyncClient:
+async def client() -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides[get_db] = _override_get_db
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        yield c  # type: ignore[misc]
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        yield c
     app.dependency_overrides.clear()
 
 
@@ -57,7 +62,7 @@ _BASE = "/api/v1/tenants"
 _OWNER = str(uuid4())
 
 
-async def _create(client: AsyncClient, name: str = "acme-corp") -> dict:
+async def _create(client: AsyncClient, name: str = "acme-corp") -> dict[str, Any]:
     resp = await client.post(
         _BASE,
         json={
@@ -71,7 +76,8 @@ async def _create(client: AsyncClient, name: str = "acme-corp") -> dict:
         },
     )
     assert resp.status_code == 201, resp.text
-    return resp.json()
+    data: dict[str, Any] = resp.json()
+    return data
 
 
 # ---------------------------------------------------------------------------
@@ -97,9 +103,19 @@ async def test_get_response_shape(client: AsyncClient) -> None:
     created = await _create(client)
     body = (await client.get(f"{_BASE}/{created['id']}")).json()
     for key in (
-        "id", "name", "display_name", "description",
-        "status", "region", "timezone", "locale", "currency",
-        "owner_id", "created_at", "updated_at", "deleted_at",
+        "id",
+        "name",
+        "display_name",
+        "description",
+        "status",
+        "region",
+        "timezone",
+        "locale",
+        "currency",
+        "owner_id",
+        "created_at",
+        "updated_at",
+        "deleted_at",
     ):
         assert key in body, f"missing key: {key!r}"
 
@@ -142,7 +158,9 @@ async def test_get_soft_deleted_tenant_returns_404(client: AsyncClient) -> None:
     tid = created["id"]
     # Force to archived then delete
     async with _SESSION_FACTORY() as s:
-        await s.execute(update(Tenant).where(Tenant.id == UUID(tid)).values(status="archived"))
+        await s.execute(
+            update(Tenant).where(Tenant.id == UUID(tid)).values(status="archived")
+        )
         await s.commit()
     del_resp = await client.delete(f"{_BASE}/{tid}")
     assert del_resp.status_code == 204

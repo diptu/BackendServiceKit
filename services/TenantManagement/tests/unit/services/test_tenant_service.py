@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from collections.abc import AsyncGenerator
+
 from uuid import UUID, uuid4
 
 import pytest
@@ -15,11 +16,14 @@ from app.domain.exceptions import (
     TenantNameConflictError,
     TenantNotFoundError,
 )
+from app.domain.commands import CreateTenantCmd, UpdateTenantCmd
 from app.infrastructure.database.base import Base
-from app.models import Tenant, TenantContact, TenantMetadata, TenantSettings  # noqa: F401
-from app.repositories.tenant_contact import TenantContactRepository
-from app.repositories.tenant_settings import TenantSettingsRepository
-from app.schemas.tenant import CreateTenantRequest, UpdateTenantRequest
+from app.infrastructure.database.models import Tenant  # noqa: F401
+from app.infrastructure.database.models import TenantContact  # noqa: F401
+from app.infrastructure.database.models import TenantMetadata  # noqa: F401
+from app.infrastructure.database.models import TenantSettings  # noqa: F401
+from app.infrastructure.repositories.tenant_contact import TenantContactRepository
+from app.infrastructure.repositories.tenant_settings import TenantSettingsRepository
 from app.services.tenant_service import TenantService
 
 # ---------------------------------------------------------------------------
@@ -33,18 +37,18 @@ _OWNER_ID = UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 
 
 @pytest.fixture(autouse=True)
-async def setup_db() -> None:
+async def setup_db() -> AsyncGenerator[None, None]:
     async with _ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    yield  # type: ignore[misc]
+    yield
     async with _ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture
-async def session() -> AsyncSession:
+async def session() -> AsyncGenerator[AsyncSession, None]:
     async with _SESSION_FACTORY() as s:
-        yield s  # type: ignore[misc]
+        yield s
 
 
 @pytest.fixture
@@ -52,8 +56,8 @@ async def svc(session: AsyncSession) -> TenantService:
     return TenantService(session)
 
 
-def _create_req(**overrides: object) -> CreateTenantRequest:
-    data = {
+def _create_req(**overrides: object) -> CreateTenantCmd:
+    data: dict[str, object] = {
         "name": "acme-corp",
         "display_name": "Acme Corporation",
         "owner_id": _OWNER_ID,
@@ -63,7 +67,7 @@ def _create_req(**overrides: object) -> CreateTenantRequest:
         "currency": "USD",
     }
     data.update(overrides)
-    return CreateTenantRequest(**data)  # type: ignore[arg-type]
+    return CreateTenantCmd(**data)  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +87,9 @@ async def test_create_sets_owner(svc: TenantService) -> None:
     assert tenant.owner_id == _OWNER_ID
 
 
-async def test_create_provisions_settings(svc: TenantService, session: AsyncSession) -> None:
+async def test_create_provisions_settings(
+    svc: TenantService, session: AsyncSession
+) -> None:
     req = _create_req(timezone="America/Chicago", locale="en-US", currency="EUR")
     tenant = await svc.create(req)
     settings = await TenantSettingsRepository(session).get_by_tenant_id(tenant.id)
@@ -94,7 +100,9 @@ async def test_create_provisions_settings(svc: TenantService, session: AsyncSess
     assert settings.currency == "EUR"
 
 
-async def test_create_provisions_owner_contact(svc: TenantService, session: AsyncSession) -> None:
+async def test_create_provisions_owner_contact(
+    svc: TenantService, session: AsyncSession
+) -> None:
     tenant = await svc.create(_create_req())
     contacts = await TenantContactRepository(session).get_active_by_tenant(tenant.id)
     assert len(contacts) == 1
@@ -102,7 +110,9 @@ async def test_create_provisions_owner_contact(svc: TenantService, session: Asyn
     assert contacts[0].role == "owner"
 
 
-async def test_create_settings_defaults_language_theme(svc: TenantService, session: AsyncSession) -> None:
+async def test_create_settings_defaults_language_theme(
+    svc: TenantService, session: AsyncSession
+) -> None:
     tenant = await svc.create(_create_req())
     settings = await TenantSettingsRepository(session).get_by_tenant_id(tenant.id)
     assert settings is not None
@@ -175,13 +185,13 @@ async def test_list_filter_by_region(svc: TenantService) -> None:
 
 async def test_update_display_name(svc: TenantService) -> None:
     tenant = await svc.create(_create_req())
-    updated = await svc.update(tenant.id, UpdateTenantRequest(display_name="New Name"))
+    updated = await svc.update(tenant.id, UpdateTenantCmd(display_name="New Name"))
     assert updated.display_name == "New Name"
 
 
 async def test_update_no_changes_is_noop(svc: TenantService) -> None:
     tenant = await svc.create(_create_req())
-    updated = await svc.update(tenant.id, UpdateTenantRequest())
+    updated = await svc.update(tenant.id, UpdateTenantCmd())
     assert updated.display_name == tenant.display_name
 
 
@@ -192,12 +202,12 @@ async def test_update_archived_raises_locked(svc: TenantService) -> None:
     await svc._repo.save(tenant)
     await svc.archive(tenant.id)
     with pytest.raises(TenantLockedError):
-        await svc.update(tenant.id, UpdateTenantRequest(display_name="Blocked"))
+        await svc.update(tenant.id, UpdateTenantCmd(display_name="Blocked"))
 
 
 async def test_update_missing_raises(svc: TenantService) -> None:
     with pytest.raises(TenantNotFoundError):
-        await svc.update(uuid4(), UpdateTenantRequest(display_name="X"))
+        await svc.update(uuid4(), UpdateTenantCmd(display_name="X"))
 
 
 # ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.commands import AddOwnerCmd
 from app.domain.events import TenantOwnerAdded, TenantOwnerRemoved
 from app.domain.exceptions import (
     TenantContactConflictError,
@@ -17,10 +18,9 @@ from app.domain.exceptions import (
     TenantNotFoundError,
     TenantOwnerRequiredError,
 )
-from app.models.tenant_contact import TenantContact
-from app.repositories.tenant import TenantRepository
-from app.repositories.tenant_contact import TenantContactRepository
-from app.schemas.tenant import AddOwnerRequest
+from app.infrastructure.database.models.tenant_contact import TenantContact
+from app.infrastructure.repositories.tenant import TenantRepository
+from app.infrastructure.repositories.tenant_contact import TenantContactRepository
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,9 @@ _SYSTEM_ACTOR = UUID("00000000-0000-0000-0000-000000000000")
 
 
 def _emit(event: Any) -> None:
-    logger.debug("domain_event", extra={"event_type": type(event).__name__, **asdict(event)})
+    logger.debug(
+        "domain_event", extra={"event_type": type(event).__name__, **asdict(event)}
+    )
 
 
 class TenantOwnerService:
@@ -49,29 +51,27 @@ class TenantOwnerService:
             raise TenantNotFoundError(tenant_id)
         return await self._contact_repo.get_active_by_tenant(tenant_id)
 
-    async def add_owner(
-        self, tenant_id: UUID, request: AddOwnerRequest
-    ) -> TenantContact:
+    async def add_owner(self, tenant_id: UUID, cmd: AddOwnerCmd) -> TenantContact:
         if not await self._tenant_repo.exists_by_id(tenant_id):
             raise TenantNotFoundError(tenant_id)
 
-        existing = await self._contact_repo.get_active_by_user(tenant_id, request.user_id)
+        existing = await self._contact_repo.get_active_by_user(tenant_id, cmd.user_id)
         if existing is not None:
-            raise TenantContactConflictError(tenant_id, request.user_id)
+            raise TenantContactConflictError(tenant_id, cmd.user_id)
 
         contact = TenantContact(
             id=uuid4(),
             tenant_id=tenant_id,
-            user_id=request.user_id,
-            role=str(request.role),
+            user_id=cmd.user_id,
+            role=cmd.role,
             added_at=datetime.now(timezone.utc),
         )
         contact = await self._contact_repo.create(contact)
         _emit(
             TenantOwnerAdded(
                 tenant_id=tenant_id,
-                user_id=request.user_id,
-                role=str(request.role),
+                user_id=cmd.user_id,
+                role=cmd.role,
                 added_by=_SYSTEM_ACTOR,
             )
         )

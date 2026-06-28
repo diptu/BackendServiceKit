@@ -28,10 +28,10 @@ _db_url, _connect_args = resolve_ssl(settings.database_url)
 config.set_main_option("sqlalchemy.url", _db_url)
 
 from app.infrastructure.database.base import Base  # noqa: E402
-import app.models.tenant  # noqa: F401, E402
-import app.models.tenant_settings  # noqa: F401, E402
-import app.models.tenant_metadata  # noqa: F401, E402
-import app.models.tenant_contact  # noqa: F401, E402
+import app.infrastructure.database.models.tenant  # noqa: F401, E402
+import app.infrastructure.database.models.tenant_settings  # noqa: F401, E402
+import app.infrastructure.database.models.tenant_metadata  # noqa: F401, E402
+import app.infrastructure.database.models.tenant_contact  # noqa: F401, E402
 
 target_metadata = Base.metadata
 

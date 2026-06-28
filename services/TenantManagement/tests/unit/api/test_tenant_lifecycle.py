@@ -16,6 +16,8 @@ State machine (per TenentStates.md):
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
+
 from uuid import UUID, uuid4
 
 import pytest
@@ -36,10 +38,10 @@ _ENGINE = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
 _SESSION_FACTORY = async_sessionmaker(_ENGINE, expire_on_commit=False)
 
 
-async def _override_get_db() -> AsyncSession:
+async def _override_get_db() -> AsyncGenerator[AsyncSession, None]:
     async with _SESSION_FACTORY() as session:
         try:
-            yield session  # type: ignore[misc]
+            yield session
             await session.commit()
         except Exception:
             await session.rollback()
@@ -47,19 +49,21 @@ async def _override_get_db() -> AsyncSession:
 
 
 @pytest.fixture(autouse=True)
-async def setup_db() -> None:
+async def setup_db() -> AsyncGenerator[None, None]:
     async with _ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    yield  # type: ignore[misc]
+    yield
     async with _ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture
-async def client() -> AsyncClient:
+async def client() -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides[get_db] = _override_get_db
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        yield c  # type: ignore[misc]
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        yield c
     app.dependency_overrides.clear()
 
 
@@ -86,16 +90,14 @@ async def _create_tenant(client: AsyncClient, name: str = "acme-corp") -> str:
         },
     )
     assert resp.status_code == 201, resp.text
-    return resp.json()["id"]
+    return str(resp.json()["id"])
 
 
 async def _force_status(tenant_id: str, status: str) -> None:
     """Bypass the state machine and directly set a tenant's status in the DB."""
     async with _SESSION_FACTORY() as s:
         await s.execute(
-            update(Tenant)
-            .where(Tenant.id == UUID(tenant_id))
-            .values(status=status)
+            update(Tenant).where(Tenant.id == UUID(tenant_id)).values(status=status)
         )
         await s.commit()
 

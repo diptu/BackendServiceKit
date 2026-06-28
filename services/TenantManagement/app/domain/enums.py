@@ -38,8 +38,12 @@ class OwnerRole(StrEnum):
 VALID_TRANSITIONS: dict[TenantStatus, frozenset[TenantStatus]] = {
     TenantStatus.DRAFT: frozenset({TenantStatus.PROVISIONING, TenantStatus.DELETED}),
     TenantStatus.PROVISIONING: frozenset({TenantStatus.ACTIVE, TenantStatus.DELETED}),
-    TenantStatus.ACTIVE: frozenset({TenantStatus.SUSPENDED, TenantStatus.ARCHIVED, TenantStatus.DELETED}),
-    TenantStatus.SUSPENDED: frozenset({TenantStatus.ACTIVE, TenantStatus.ARCHIVED, TenantStatus.DELETED}),
+    TenantStatus.ACTIVE: frozenset(
+        {TenantStatus.SUSPENDED, TenantStatus.ARCHIVED, TenantStatus.DELETED}
+    ),
+    TenantStatus.SUSPENDED: frozenset(
+        {TenantStatus.ACTIVE, TenantStatus.ARCHIVED, TenantStatus.DELETED}
+    ),
     TenantStatus.ARCHIVED: frozenset({TenantStatus.DELETED}),
     TenantStatus.DELETED: frozenset(),
 }

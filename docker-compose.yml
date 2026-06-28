@@ -1,85 +1,189 @@
-version: "3.8"
+# NutraTenant — local development stack
+# Ports:  8000 = APIGateway  |  8001 = TenantManagement  |  8002 = TenantLifecycle
+#         5433 = Postgres     |  6379 = Redis             |  5672/15672 = RabbitMQ
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
 
 services:
-  # ============================================================
-  # SYSTEM APPLICATION SERVICES (MAPPED VIA LOCAL .ENV FILES)
-  # ============================================================
-  iam:
-    build:
-      context: ..
-      dockerfile: Dockerfile.service
-      args:
-        SERVICE_NAME: iam
-        SERVICE_PATH: services/iam
-    ports:
-      - "8001:8000"
-    # 👇 Automatically pulls DATABASE_URL and SECRET_KEY from your local file
-    env_file:
-      - ../services/iam/.env
-    restart: unless-stopped
 
-  payment:
-    build:
-      context: ..
-      dockerfile: Dockerfile.service
-      args:
-        SERVICE_NAME: payment
-        SERVICE_PATH: services/payment
-    ports:
-      - "8002:8000"
-    env_file:
-      - ../services/payment/.env
-    restart: unless-stopped
+  # ──────────────────────────────────────────────────────────────────
+  # INFRASTRUCTURE
+  # ──────────────────────────────────────────────────────────────────
 
-  search:
-    build:
-      context: ..
-      dockerfile: Dockerfile.service
-      args:
-        SERVICE_NAME: search
-        SERVICE_PATH: services/search
+  postgres:
+    container_name: backendservicekit-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
-      - "8003:8000"
-    env_file:
-      - ../services/search/.env
+      - "5433:5432"
+    networks:
+      - backend
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
 
-  notification:
-    build:
-      context: ..
-      dockerfile: Dockerfile.service
-      args:
-        SERVICE_NAME: notification
-        SERVICE_PATH: services/notification
+  redis:
+    container_name: backendservicekit-redis
+    image: redis:7-alpine
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+    volumes:
+      - redis_data:/data
     ports:
-      - "8004:8000"
-    env_file:
-      - ../services/notification/.env
+      - "6379:6379"
+    networks:
+      - backend
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      start_period: 5s
+      retries: 5
 
-  analytics:
-    build:
-      context: ..
-      dockerfile: Dockerfile.service
-      args:
-        SERVICE_NAME: analytics
-        SERVICE_PATH: services/analytics
+  rabbitmq:
+    container_name: backendservicekit-rabbitmq
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
     ports:
-      - "8005:8000"
-    env_file:
-      - ../services/analytics/.env
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI  →  http://localhost:15672
+    networks:
+      - backend
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+
+  # ──────────────────────────────────────────────────────────────────
+  # APPLICATION SERVICES
+  # ──────────────────────────────────────────────────────────────────
 
   tenant-management:
+    container_name: backendservicekit-tenantmanagement
     build:
       context: ./services/TenantManagement
       dockerfile: Dockerfile
     ports:
-      - "8006:8000"
+      - "8001:8000"
     env_file:
       - ./services/TenantManagement/.env
     environment:
-      - ENVIRONMENT=development
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_tenant
+      DATABASE_SSL: "false"
+      REDIS_URL: redis://redis:6379/1
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8002"]'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  tenant-lifecycle:
+    container_name: backendservicekit-tenantlifecycle
+    build:
+      context: ./services/TenantLifecycle
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8000"
+    env_file:
+      - ./services/TenantLifecycle/.env
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_lifecycle
+      DATABASE_SSL: "false"
+      REDIS_URL: redis://redis:6379/2
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      TENANT_MANAGEMENT_BASE_URL: http://tenant-management:8000
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8001"]'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      tenant-management:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  api-gateway:
+    container_name: backendservicekit-apigateway
+    build:
+      context: ./services/APIGateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./services/APIGateway/.env
+    environment:
+      ENVIRONMENT: development
+      REDIS_URL: redis://redis:6379/3
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672/
+      CELERY_RESULT_BACKEND: redis://redis:6379/5
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      TENANT_MANAGEMENT_BASE_URL: http://tenant-management:8000
+      TENANT_LIFECYCLE_BASE_URL: http://tenant-lifecycle:8000
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8001","http://localhost:8002"]'
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      tenant-management:
+        condition: service_healthy
+      tenant-lifecycle:
+        condition: service_healthy
+    networks:
+      - backend
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
@@ -87,3 +191,44 @@ services:
       timeout: 5s
       start_period: 15s
       retries: 3
+
+  tenant-management-docs:
+    container_name: backendservicekit-tenantmanagement-docs
+    build:
+      context: ./services/TenantManagement
+      dockerfile: Dockerfile.docs
+      args:
+        SCOPE: public
+    ports:
+      - "8080:80"
+    networks:
+      - backend
+    restart: unless-stopped
+    profiles:
+      - docs
+
+  api-gateway-worker:
+    container_name: backendservicekit-apigateway-worker
+    build:
+      context: ./services/APIGateway
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.tasks.worker.celery_app", "worker",
+              "--loglevel=info", "--concurrency=4", "--queues=audit,cache,webhook"]
+    env_file:
+      - ./services/APIGateway/.env
+    environment:
+      ENVIRONMENT: development
+      REDIS_URL: redis://redis:6379/3
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672/
+      CELERY_RESULT_BACKEND: redis://redis:6379/5
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      TENANT_MANAGEMENT_BASE_URL: http://tenant-management:8000
+      TENANT_LIFECYCLE_BASE_URL: http://tenant-lifecycle:8000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped

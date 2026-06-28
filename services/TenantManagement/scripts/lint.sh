@@ -18,7 +18,11 @@ uv run ruff format --check .
 
 echo ""
 echo "Type checking"
-uv run mypy .
+uv run mypy --python-executable .venv/bin/python .
+
+echo ""
+echo "Pylint — clone detection (R0801)"
+uv run pylint app/
 
 echo ""
 echo "Running tests"
