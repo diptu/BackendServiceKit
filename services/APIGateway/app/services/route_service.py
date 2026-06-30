@@ -32,15 +32,21 @@ def _build_registry() -> list[Route]:
     return [
         Route(
             prefix="/api/v1/tenants",
-            upstream=UpstreamService.TENANT_MANAGEMENT,
-            base_url=settings.tenant_management_base_url,
-            cache_ttl=settings.redis_tenant_cache_ttl,
+            upstream=UpstreamService.TENENT,
+            base_url=settings.tenent_base_url,
+            cache_ttl=settings.redis_tenent_cache_ttl,
         ),
         Route(
-            prefix="/api/v1/tenant-lifecycle",
-            upstream=UpstreamService.TENANT_LIFECYCLE,
-            base_url=settings.tenant_lifecycle_base_url,
-            cache_ttl=settings.redis_lifecycle_cache_ttl,
+            prefix="/api/v1/lifecycle",
+            upstream=UpstreamService.TENENT,
+            base_url=settings.tenent_base_url,
+            cache_ttl=settings.redis_tenent_cache_ttl,
+        ),
+        Route(
+            prefix="/api/v1/isolation",
+            upstream=UpstreamService.TENENT,
+            base_url=settings.tenent_base_url,
+            cache_ttl=settings.redis_isolation_cache_ttl,
         ),
         Route(
             prefix="/api/v1/provisioning",

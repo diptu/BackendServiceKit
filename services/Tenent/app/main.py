@@ -9,11 +9,14 @@ from typing import AsyncIterator
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_client import make_asgi_app
 from slowapi.errors import RateLimitExceeded  # type: ignore[import-untyped]
 from slowapi.middleware import SlowAPIMiddleware  # type: ignore[import-untyped]
 
 from app.api.router import api_router
 from app.core.config import settings
+from app.core.metrics import REGISTRY
+from app.core.openapi import TAGS_METADATA
 from app.domain.exceptions import (
     ContextResolutionError,
     InvalidLifecycleTransitionError,
@@ -41,7 +44,44 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    logger.info("startup", extra={"service": settings.app_name})
+    from app.core.logging import configure_logging
+
+    configure_logging(debug=settings.debug)
+    logger.info(
+        "startup", extra={"service": settings.app_name, "version": settings.app_version}
+    )
+
+    # ── Redis warm-up (fault-tolerant) ───────────────────────────────────
+    try:
+        from app.infrastructure.cache.redis_cache import get_redis
+
+        await get_redis().ping()
+        logger.info("redis_connected", extra={"url": settings.redis_url})
+    except Exception as exc:
+        logger.warning("redis_unavailable", extra={"error": str(exc)})
+
+    # ── OpenTelemetry ────────────────────────────────────────────────────
+    if settings.enable_tracing:
+        try:
+            from shared.observability.tracing.tracer import configure_tracer
+            from shared.observability.tracing.propagators import configure_propagator
+            from shared.observability.instrumentation.fastapi import instrument_fastapi
+            from shared.observability.instrumentation.httpx import instrument_httpx
+            from shared.observability.instrumentation.redis import instrument_redis
+
+            _tp = configure_tracer(
+                settings.app_name, settings.otlp_endpoint, settings.environment
+            )
+            configure_propagator()
+            instrument_fastapi(app, tracer_provider=_tp)
+            instrument_httpx()
+            instrument_redis()
+            logger.info(
+                "otel_tracing_enabled", extra={"endpoint": settings.otlp_endpoint}
+            )
+        except Exception as exc:
+            logger.warning("otel_init_failed", extra={"error": str(exc)})
+
     yield
     logger.info("shutdown", extra={"service": settings.app_name})
 
@@ -53,6 +93,7 @@ def create_app() -> FastAPI:
         docs_url=None if settings.environment == "production" else "/docs",
         redoc_url=None if settings.environment == "production" else "/redoc",
         openapi_url=None if settings.environment == "production" else "/openapi.json",
+        openapi_tags=TAGS_METADATA,
         lifespan=lifespan,
     )
 
@@ -71,6 +112,10 @@ def create_app() -> FastAPI:
     # Routers
     app.include_router(api_router)
 
+    # Prometheus scrape endpoint backed by the custom isolation REGISTRY
+    if settings.enable_metrics:
+        app.mount("/metrics", make_asgi_app(registry=REGISTRY))
+
     # Exception handlers
     _register_exception_handlers(app)
 
@@ -78,7 +123,6 @@ def create_app() -> FastAPI:
 
 
 def _register_exception_handlers(app: FastAPI) -> None:
-
     @app.exception_handler(RateLimitExceeded)
     async def _rate_limit(request: Request, exc: RateLimitExceeded) -> JSONResponse:
         return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded."})
@@ -101,8 +145,8 @@ def _register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(InvalidTenantTransitionError)
     @app.exception_handler(InvalidLifecycleTransitionError)
-    async def _unprocessable(request: Request, exc: Exception) -> JSONResponse:
-        return JSONResponse(status_code=422, content={"detail": str(exc)})
+    async def _conflict_transition(request: Request, exc: Exception) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
 
     @app.exception_handler(IsolationViolationError)
     async def _forbidden(request: Request, exc: Exception) -> JSONResponse:

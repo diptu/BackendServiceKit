@@ -11,7 +11,6 @@ from app.repositories.base import BaseRepository
 
 
 class TenantMetadataRepository(BaseRepository[TenantMetadata]):
-
     async def get_all_for_tenant(self, tenant_id: UUID) -> list[TenantMetadata]:
         result = await self._session.execute(
             select(TenantMetadata)

@@ -7,11 +7,15 @@ from uuid import UUID
 from sqlalchemy import func, or_, select
 
 from app.models.access_decision_log import AccessDecisionLog
-from app.repositories.base import BaseRepository, PageResult, decode_cursor, encode_cursor
+from app.repositories.base import (
+    BaseRepository,
+    PageResult,
+    decode_cursor,
+    encode_cursor,
+)
 
 
 class AccessDecisionLogRepository(BaseRepository[AccessDecisionLog]):
-
     async def create(self, log: AccessDecisionLog) -> AccessDecisionLog:
         self._session.add(log)
         await self._session.flush()
@@ -54,6 +58,10 @@ class AccessDecisionLogRepository(BaseRepository[AccessDecisionLog]):
         has_more = len(rows) > limit
         items = list(rows[:limit])
         cursor = (
-            encode_cursor(items[-1].decided_at, items[-1].id) if has_more and items else None
+            encode_cursor(items[-1].decided_at, items[-1].id)
+            if has_more and items
+            else None
         )
-        return PageResult(items=items, total=total, has_more=has_more, next_cursor=cursor)
+        return PageResult(
+            items=items, total=total, has_more=has_more, next_cursor=cursor
+        )

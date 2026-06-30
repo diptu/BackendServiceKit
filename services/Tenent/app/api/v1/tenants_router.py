@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies import DbDep, TenantDep
@@ -23,7 +22,6 @@ from app.domain.exceptions import (
     TenantContactNotFoundError,
     TenantDeletedError,
     TenantNameConflictError,
-    TenantNotFoundError,
     TenantOwnerRequiredError,
 )
 from app.repositories.tenant import TenantFilter
@@ -236,9 +234,7 @@ async def add_owner(
 
 
 @router.delete("/{tenant_id}/owners/{contact_id}", status_code=204)
-async def remove_owner(
-    tenant: TenantDep, contact_id: UUID, db: DbDep
-) -> None:
+async def remove_owner(tenant: TenantDep, contact_id: UUID, db: DbDep) -> None:
     try:
         await _svc(db).remove_owner(tenant.id, contact_id)
     except TenantContactNotFoundError as exc:

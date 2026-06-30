@@ -118,7 +118,9 @@ class IsolationService:
 
         await cache_set_str(
             cache_key,
-            json.dumps({"allowed": allowed, "decision": decision.value, "reason": reason}),
+            json.dumps(
+                {"allowed": allowed, "decision": decision.value, "reason": reason}
+            ),
             ttl=_DECISION_TTL,
         )
 

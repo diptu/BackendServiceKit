@@ -8,8 +8,7 @@ from enum import StrEnum
 class UpstreamService(StrEnum):
     """Registered upstream microservices the gateway can proxy to."""
 
-    TENANT_MANAGEMENT = "tenant_management"
-    TENANT_LIFECYCLE = "tenant_lifecycle"
+    TENENT = "tenent"
     TENANT_PROVISIONING = "tenant_provisioning"
 
 

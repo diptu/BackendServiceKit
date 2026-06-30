@@ -12,18 +12,30 @@ TAGS_METADATA = [
         "description": "Gateway management: route registry, cache stats, upstream health.",
     },
     {
-        "name": "Proxy — TenantManagement",
+        "name": "Proxy — Tenent",
         "description": (
-            "Reverse-proxy to **TenantManagement** (`/api/v1/tenants/*`). "
-            "GET responses are cached in Redis for 5 minutes. "
-            "Write operations invalidate the cache for the affected tenant."
+            "Reverse-proxy to the **Tenent** combined service. Handles:\n\n"
+            "- `/api/v1/tenants/*` — tenant CRUD, settings, owners, metadata, TM-side lifecycle transitions. "
+            "GET responses cached 5 minutes.\n"
+            "- `/api/v1/lifecycle/*` — authoritative state machine (provision → pending → active, "
+            "suspend, lock, archive, delete). GET history cached 5 minutes.\n"
+            "- `/api/v1/isolation/*` — cross-tenant access enforcement, resource claims, "
+            "policy management. Decision GETs cached 60 seconds.\n\n"
+            "Write operations with `X-Tenant-ID` header invalidate the per-tenant cache."
         ),
     },
     {
-        "name": "Proxy — TenantLifecycle",
+        "name": "Proxy — TenantProvisioning",
         "description": (
-            "Reverse-proxy to **TenantLifecycle** (`/api/v1/tenant-lifecycle/*`). "
-            "History GET responses are cached in Redis for 60 seconds."
+            "Reverse-proxy to **TenantProvisioning** (`/api/v1/provisioning/*`). "
+            "Celery-backed async infra-setup jobs. GET responses cached 30 seconds."
+        ),
+    },
+    {
+        "name": "Kong",
+        "description": (
+            "Kong API Gateway integration. Inspect Kong services, routes, and plugins "
+            "via the Kong Admin API, and sync the FastAPI route registry into Kong dynamically."
         ),
     },
 ]

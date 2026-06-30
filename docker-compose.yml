@@ -1,6 +1,11 @@
 # NutraTenant — local development stack
-# Ports:  8000 = APIGateway  |  8001 = TenantManagement  |  8002 = TenantLifecycle  |  8003 = TenantProvisioning  |  8004 = TenantIsolation
-#         5433 = Postgres     |  6379 = Redis             |  5672/15672 = RabbitMQ
+#
+# Port layout (Kong-enabled stack):
+#   8000  Kong proxy (public edge)          | 8001  Kong Admin API (conflicts with TM — stop TM when running Kong)
+#   8080  FastAPI APIGateway (internal)     | 8005  Tenent combined service (TM+TL+TI)
+#   8003  TenantProvisioning               | 8001  TenantManagement (legacy, conflicts with Kong Admin)
+#   8002  TenantLifecycle (legacy)          | 8004  TenantIsolation (legacy)
+#   5433  Postgres  |  6379  Redis  |  5672/15672  RabbitMQ
 
 networks:
   backend:
@@ -10,6 +15,10 @@ volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
+  kong_data:
+  tempo_data:
+  loki_data:
+  grafana_data:
 
 services:
 
@@ -246,13 +255,97 @@ services:
     profiles:
       - monitoring
 
+  # ── Tenent: combined TenantManagement + TenantLifecycle + TenantIsolation ──
+
+  tenent:
+    container_name: backendservicekit-tenent
+    build:
+      context: ./services/Tenent
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8000"
+    env_file:
+      - ./services/Tenent/.env.example
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_tenent
+      DATABASE_SSL: "false"
+      REDIS_URL: redis://redis:6379/7
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      TENANT_PROVISIONING_BASE_URL: http://tenant-provisioning:8000
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000"]'
+      OTEL_SERVICE_NAME: nutratenant-tenent
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      ENABLE_TRACING: "true"
+      ENABLE_METRICS: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  # ── Kong: DB-less declarative edge gateway ─────────────────────────────────
+  # NOTE: Kong Admin API runs on 8001, which conflicts with tenant-management.
+  #       Stop tenant-management before starting Kong in the same environment.
+
+  kong:
+    container_name: backendservicekit-kong
+    image: kong:3.9
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_ADMIN_GUI_URL: http://localhost:8002
+      KONG_TRACING_INSTRUMENTATIONS: all
+      KONG_TRACING_SAMPLING_RATE: "1.0"
+    volumes:
+      - ./services/APIGateway/kong/kong.yml:/etc/kong/kong.yml:ro
+    ports:
+      - "8000:8000"   # Proxy (public edge — replaces FastAPI APIGateway on 8000)
+      - "8001:8001"   # Admin API (internal/dev)
+    networks:
+      - backend
+    depends_on:
+      tenent:
+        condition: service_healthy
+      tenant-provisioning:
+        condition: service_healthy
+      api-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 45s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - kong
+
   api-gateway:
     container_name: backendservicekit-apigateway
     build:
       context: ./services/APIGateway
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "8080:8000"   # Moved to 8080; Kong takes 8000 as public edge
     env_file:
       - ./services/APIGateway/.env
     environment:
@@ -261,18 +354,21 @@ services:
       CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672/
       CELERY_RESULT_BACKEND: redis://redis:6379/5
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      TENANT_MANAGEMENT_BASE_URL: http://tenant-management:8000
-      TENANT_LIFECYCLE_BASE_URL: http://tenant-lifecycle:8000
+      TENENT_BASE_URL: http://tenent:8000
       TENANT_PROVISIONING_BASE_URL: http://tenant-provisioning:8000
-      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8001","http://localhost:8002","http://localhost:8003"]'
+      KONG_ADMIN_URL: http://kong:8001
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8005","http://localhost:8003"]'
+      OTEL_SERVICE_NAME: nutratenant-api-gateway
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      ENABLE_TRACING: "true"
+      ENABLE_METRICS: "true"
     depends_on:
       redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      tenant-management:
-        condition: service_healthy
-      tenant-lifecycle:
+      tenent:
         condition: service_healthy
       tenant-provisioning:
         condition: service_healthy
@@ -350,8 +446,8 @@ services:
       CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672/
       CELERY_RESULT_BACKEND: redis://redis:6379/5
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      TENANT_MANAGEMENT_BASE_URL: http://tenant-management:8000
-      TENANT_LIFECYCLE_BASE_URL: http://tenant-lifecycle:8000
+      TENENT_BASE_URL: http://tenent:8000
+      TENANT_PROVISIONING_BASE_URL: http://tenant-provisioning:8000
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -360,3 +456,122 @@ services:
     networks:
       - backend
     restart: unless-stopped
+
+  # ──────────────────────────────────────────────────────────────────
+  # OBSERVABILITY STACK  (docker compose --profile observability up)
+  # ──────────────────────────────────────────────────────────────────
+
+  otel-collector:
+    container_name: backendservicekit-otel-collector
+    image: otel/opentelemetry-collector-contrib:0.105.0
+    volumes:
+      - ./services/MetricsCollection/otelcol/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP (used by Kong opentelemetry plugin)
+      - "8889:8889"   # Prometheus scrape endpoint
+    networks:
+      - backend
+    restart: unless-stopped
+    profiles:
+      - observability
+
+  prometheus:
+    container_name: backendservicekit-prometheus
+    image: prom/prometheus:v2.53.0
+    volumes:
+      - ./services/MetricsCollection/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./services/MetricsCollection/prometheus/rules:/etc/prometheus/rules:ro
+      - ./services/Alerting/prometheus/alerts:/etc/prometheus/alerts:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - backend
+    restart: unless-stopped
+    profiles:
+      - observability
+
+  tempo:
+    container_name: backendservicekit-tempo
+    image: grafana/tempo:2.5.0
+    command: ["-config.file=/etc/tempo/tempo.yml"]
+    volumes:
+      - ./services/DistributedTracing/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo_data:/var/tempo
+    ports:
+      - "3200:3200"   # HTTP query API
+    networks:
+      - backend
+    restart: unless-stopped
+    profiles:
+      - observability
+
+  loki:
+    container_name: backendservicekit-loki
+    image: grafana/loki:3.1.0
+    command: ["-config.file=/etc/loki/loki-config.yaml"]
+    volumes:
+      - ./services/Logging/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - backend
+    restart: unless-stopped
+    profiles:
+      - observability
+
+  promtail:
+    container_name: backendservicekit-promtail
+    image: grafana/promtail:3.1.0
+    volumes:
+      - ./services/Logging/promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log:/var/log:ro
+    command: ["-config.file=/etc/promtail/promtail-config.yaml"]
+    networks:
+      - backend
+    restart: unless-stopped
+    depends_on:
+      - loki
+    profiles:
+      - observability
+
+  grafana:
+    container_name: backendservicekit-grafana
+    image: grafana/grafana:11.1.0
+    volumes:
+      - ./services/Monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ./services/Monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./shared/observability/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: nutratenant
+    networks:
+      - backend
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+    profiles:
+      - observability
+
+  alertmanager:
+    container_name: backendservicekit-alertmanager
+    image: prom/alertmanager:v0.27.0
+    volumes:
+      - ./services/Alerting/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "9093:9093"
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    networks:
+      - backend
+    restart: unless-stopped
+    profiles:
+      - observability

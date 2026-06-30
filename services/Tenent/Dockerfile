@@ -23,7 +23,8 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
-CMD ["uv", "run", "gunicorn", "app.main:app", \
+CMD ["opentelemetry-instrument", \
+     "uv", "run", "gunicorn", "app.main:app", \
      "--worker-class", "uvicorn.workers.UvicornWorker", \
      "--workers", "2", \
      "--bind", "0.0.0.0:8000", \

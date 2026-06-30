@@ -1,4 +1,5 @@
 """Async Redis cache — fault-tolerant: silently degrades if Redis is unavailable."""
+
 from __future__ import annotations
 
 import json
@@ -15,6 +16,7 @@ def get_redis() -> Any:
     if _client is None:
         import redis.asyncio as aioredis  # type: ignore[import-untyped]
         from app.core.config import settings
+
         _client = aioredis.from_url(settings.redis_url, decode_responses=True)
     return _client
 
@@ -70,7 +72,9 @@ async def cache_delete_by_prefix(prefix: str) -> int:
             if cursor == 0:
                 break
     except Exception as exc:
-        logger.debug("cache_delete_by_prefix_failed", extra={"prefix": prefix, "error": str(exc)})
+        logger.debug(
+            "cache_delete_by_prefix_failed", extra={"prefix": prefix, "error": str(exc)}
+        )
     return deleted
 
 
@@ -85,4 +89,6 @@ def claim_cache_key(resource_type: str, resource_id: str) -> str:
 def decision_cache_key(
     caller: str, target: str, resource_id: str, resource_type: str, action: str
 ) -> str:
-    return f"isolation:decision:{caller}:{target}:{resource_id}:{resource_type}:{action}"
+    return (
+        f"isolation:decision:{caller}:{target}:{resource_id}:{resource_type}:{action}"
+    )

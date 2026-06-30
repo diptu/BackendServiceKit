@@ -11,7 +11,6 @@ from app.repositories.base import BaseRepository
 
 
 class LifecycleStateRepository(BaseRepository[TenantLifecycleState]):
-
     async def get_by_tenant_id(self, tenant_id: UUID) -> TenantLifecycleState | None:
         result = await self._session.execute(
             select(TenantLifecycleState).where(

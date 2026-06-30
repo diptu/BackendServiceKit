@@ -7,11 +7,15 @@ from uuid import UUID
 from sqlalchemy import func, or_, select, update
 
 from app.models.isolation_policy import IsolationPolicy
-from app.repositories.base import BaseRepository, PageResult, decode_cursor, encode_cursor
+from app.repositories.base import (
+    BaseRepository,
+    PageResult,
+    decode_cursor,
+    encode_cursor,
+)
 
 
 class IsolationPolicyRepository(BaseRepository[IsolationPolicy]):
-
     async def create(self, policy: IsolationPolicy) -> IsolationPolicy:
         self._session.add(policy)
         await self._session.flush()
@@ -69,9 +73,13 @@ class IsolationPolicyRepository(BaseRepository[IsolationPolicy]):
         has_more = len(rows) > limit
         items = list(rows[:limit])
         cursor = (
-            encode_cursor(items[-1].created_at, items[-1].id) if has_more and items else None
+            encode_cursor(items[-1].created_at, items[-1].id)
+            if has_more and items
+            else None
         )
-        return PageResult(items=items, total=total, has_more=has_more, next_cursor=cursor)
+        return PageResult(
+            items=items, total=total, has_more=has_more, next_cursor=cursor
+        )
 
     async def update(self, policy_id: UUID, **kwargs: object) -> IsolationPolicy:
         await self._session.execute(
@@ -84,5 +92,7 @@ class IsolationPolicyRepository(BaseRepository[IsolationPolicy]):
         assert policy is not None
         return policy
 
-    async def toggle_active(self, policy_id: UUID, *, is_active: bool) -> IsolationPolicy:
+    async def toggle_active(
+        self, policy_id: UUID, *, is_active: bool
+    ) -> IsolationPolicy:
         return await self.update(policy_id, is_active=is_active)

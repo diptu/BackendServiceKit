@@ -1,0 +1,104 @@
+# OpenTelemetry Collector — NutraTenant metrics/traces/logs pipeline
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  # Strip PII/sensitive headers from span attributes before exporting
+  transform/strip_sensitive:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - delete_key(attributes, "http.request.header.authorization")
+          - delete_key(attributes, "http.request.header.cookie")
+          - delete_key(attributes, "http.response.header.set-cookie")
+          - delete_key(attributes, "http.request.header.x-api-key")
+
+  # Add deployment environment resource attribute
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: development
+        action: upsert
+
+exporters:
+  # Prometheus scrape endpoint — Grafana pulls metrics from here
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: nutratenant
+    const_labels:
+      platform: nutratenant
+
+  # Forward traces to Tempo via OTLP gRPC
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+
+  # Forward logs to Loki
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    default_labels_enabled:
+      exporter: false
+      job: true
+    labels:
+      resource:
+        service.name: "service"
+        deployment.environment: "env"
+      attributes:
+        level: ""
+
+  # debug:
+  #   verbosity: detailed
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof, zpages]
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [prometheus]
+
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, transform/strip_sensitive, resource]
+      exporters: [otlp/tempo]
+
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [loki]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: basic
+      address: 0.0.0.0:8888

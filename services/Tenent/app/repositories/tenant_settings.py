@@ -11,7 +11,6 @@ from app.repositories.base import BaseRepository
 
 
 class TenantSettingsRepository(BaseRepository[TenantSettings]):
-
     async def get_by_tenant_id(self, tenant_id: UUID) -> TenantSettings | None:
         result = await self._session.execute(
             select(TenantSettings).where(TenantSettings.tenant_id == tenant_id)

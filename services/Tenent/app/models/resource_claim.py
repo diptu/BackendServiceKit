@@ -24,7 +24,9 @@ class ResourceClaim(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("resource_type", "resource_id", name="uq_resource_claims_type_id"),
+        UniqueConstraint(
+            "resource_type", "resource_id", name="uq_resource_claims_type_id"
+        ),
         Index("idx_resource_claims_tenant_id", "tenant_id"),
         Index("idx_resource_claims_type_id", "resource_type", "resource_id"),
     )

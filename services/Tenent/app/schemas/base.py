@@ -1,4 +1,5 @@
 """Shared Pydantic base model for all schemas."""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict

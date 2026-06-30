@@ -1,0 +1,29 @@
+# Recording rules — pre-compute expensive queries for dashboard performance
+
+groups:
+  - name: nutratenant.http.rate5m
+    interval: 30s
+    rules:
+      - record: job:http_requests_total:rate5m
+        expr: sum(rate(nutratenant_http_requests_total[5m])) by (job, method, path, status_code)
+
+      - record: job:http_request_duration_seconds:p95_5m
+        expr: histogram_quantile(0.95, sum(rate(nutratenant_http_request_duration_seconds_bucket[5m])) by (job, le))
+
+      - record: job:http_request_duration_seconds:p99_5m
+        expr: histogram_quantile(0.99, sum(rate(nutratenant_http_request_duration_seconds_bucket[5m])) by (job, le))
+
+      - record: job:http_error_rate5m
+        expr: |
+          sum(rate(nutratenant_http_requests_total{status_code=~"5.."}[5m])) by (job)
+          /
+          sum(rate(nutratenant_http_requests_total[5m])) by (job)
+
+  - name: nutratenant.isolation
+    interval: 30s
+    rules:
+      - record: job:isolation_decisions_total:rate5m
+        expr: sum(rate(nutratenant_isolation_decisions_total[5m])) by (decision)
+
+      - record: job:isolation_violations_total:rate5m
+        expr: sum(rate(nutratenant_isolation_violations_total[5m]))

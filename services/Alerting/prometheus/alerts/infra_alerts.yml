@@ -1,0 +1,59 @@
+# Prometheus alert rules — infrastructure layer
+
+groups:
+  - name: nutratenant.infrastructure
+    rules:
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is unreachable"
+          description: "Redis has been down for more than 1 minute. Cache and session services are degraded."
+
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is unreachable"
+          description: "PostgreSQL has been down for more than 1 minute. All database operations are failing."
+
+      - alert: RabbitMQDown
+        expr: rabbitmq_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RabbitMQ is unreachable"
+          description: "RabbitMQ has been down for more than 2 minutes. Event messaging is offline."
+
+      - alert: RabbitMQQueueBacklog
+        expr: rabbitmq_queue_messages > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RabbitMQ queue {{ $labels.queue }} has large backlog"
+          description: "Queue {{ $labels.queue }} has {{ $value }} messages. Consumer may be stalled."
+
+      - alert: OTelCollectorHighMemory
+        expr: |
+          otelcol_process_memory_rss > 512 * 1024 * 1024
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "OTel Collector high memory usage"
+          description: "OTel Collector RSS memory is {{ $value | humanizeBytes }}. Consider reducing batch sizes."
+
+      - alert: PrometheusTargetDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus scrape target {{ $labels.job }} is down"
+          description: "Prometheus cannot scrape {{ $labels.instance }} (job={{ $labels.job }})."

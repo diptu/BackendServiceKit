@@ -15,13 +15,33 @@ _tenant_id_var: contextvars.ContextVar[str] = contextvars.ContextVar(
     "tenant_id", default="-"
 )
 
-_SKIP_FIELDS = frozenset({
-    "name", "msg", "args", "levelname", "levelno", "pathname",
-    "filename", "module", "exc_info", "exc_text", "stack_info",
-    "lineno", "funcName", "created", "msecs", "relativeCreated",
-    "thread", "threadName", "processName", "process", "message",
-    "taskName", "asctime",
-})
+_SKIP_FIELDS = frozenset(
+    {
+        "name",
+        "msg",
+        "args",
+        "levelname",
+        "levelno",
+        "pathname",
+        "filename",
+        "module",
+        "exc_info",
+        "exc_text",
+        "stack_info",
+        "lineno",
+        "funcName",
+        "created",
+        "msecs",
+        "relativeCreated",
+        "thread",
+        "threadName",
+        "processName",
+        "process",
+        "message",
+        "taskName",
+        "asctime",
+    }
+)
 
 
 class _JSONFormatter(logging.Formatter):

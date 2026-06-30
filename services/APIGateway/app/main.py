@@ -11,6 +11,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_client import make_asgi_app
 
 from app.api.router import api_router
 from app.core.config import settings
@@ -27,7 +28,7 @@ _DESCRIPTION = """\
 The **API Gateway** is the single entry point for all client traffic in the NutraTenant
 platform. It provides:
 
-- **Reverse proxy** — routes requests to TenantManagement and TenantLifecycle microservices
+- **Reverse proxy** — routes requests to the Tenent combined service and TenantProvisioning
 - **Redis caching** — caches GET responses with configurable TTL per upstream
 - **Cache invalidation** — purges stale entries on writes and on RabbitMQ tenant-change events
 - **Celery audit tasks** — ships request/response audit records asynchronously
@@ -39,8 +40,10 @@ platform. It provides:
 
 | Path Prefix | Upstream Service | Cache TTL |
 |---|---|---|
-| `/api/v1/tenants/**` | TenantManagement (:8000) | 5 min |
-| `/api/v1/tenant-lifecycle/**` | TenantLifecycle (:8001) | 60 s |
+| `/api/v1/tenants/**` | Tenent (:8005) | 5 min |
+| `/api/v1/lifecycle/**` | Tenent (:8005) | 5 min |
+| `/api/v1/isolation/**` | Tenent (:8005) | 60 s |
+| `/api/v1/provisioning/**` | TenantProvisioning (:8003) | 30 s |
 
 ---
 
@@ -67,6 +70,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         },
     )
 
+    # ── OpenTelemetry ────────────────────────────────────────────────────
+    if settings.enable_tracing:
+        try:
+            from shared.observability.tracing.tracer import configure_tracer
+            from shared.observability.tracing.propagators import configure_propagator
+            from shared.observability.instrumentation.fastapi import instrument_fastapi
+            from shared.observability.instrumentation.httpx import instrument_httpx
+
+            _tp = configure_tracer(settings.app_name, settings.otlp_endpoint, settings.environment)
+            configure_propagator()
+            instrument_fastapi(app, tracer_provider=_tp)
+            instrument_httpx()
+            logger.info("otel_tracing_enabled", extra={"endpoint": settings.otlp_endpoint})
+        except Exception as exc:
+            logger.warning("otel_init_failed", extra={"error": str(exc)})
+
     # ── Shared async HTTP client (connection-pooled) ───────────────────
     app.state.http_client = httpx.AsyncClient(
         timeout=settings.upstream_timeout,
@@ -81,6 +100,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await redis_client.ping()
         app.state.redis = redis_client
         logger.info("redis_connected", extra={"url": settings.redis_url})
+        try:
+            from shared.observability.instrumentation.redis import instrument_redis
+            instrument_redis()
+        except Exception:
+            pass
     except Exception as exc:
         logger.warning(
             "redis_unavailable",
@@ -155,6 +179,10 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+# Prometheus scrape endpoint — served at /metrics by the default registry
+if settings.enable_metrics:
+    app.mount("/metrics", make_asgi_app())
 
 
 @app.exception_handler(Exception)

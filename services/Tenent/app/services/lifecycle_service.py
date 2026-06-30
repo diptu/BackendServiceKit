@@ -15,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.enums import (
     LIFECYCLE_VALID_TRANSITIONS,
     TenantLifecycleStatus,
-    TenantStatus,
     TransitionType,
 )
 from app.domain.exceptions import (
@@ -378,11 +377,11 @@ class TenantLifecycleService:
 # Mapping: TL transition → TM action name (None = no TM sync needed)
 _TL_TO_TM_ACTION: dict[TransitionType, str | None] = {
     TransitionType.PROVISION: "provision",
-    TransitionType.PEND: None,       # TM was left in provisioning; sync on ACTIVATE
+    TransitionType.PEND: None,  # TM was left in provisioning; sync on ACTIVATE
     TransitionType.ACTIVATE: "activate",
     TransitionType.SUSPEND: "suspend",
     TransitionType.REACTIVATE: "activate",
-    TransitionType.LOCK: "suspend",   # TM has no locked state; proxy as suspend
+    TransitionType.LOCK: "suspend",  # TM has no locked state; proxy as suspend
     TransitionType.UNLOCK: "activate",
     TransitionType.ARCHIVE: "archive",
     TransitionType.DELETE: "delete",

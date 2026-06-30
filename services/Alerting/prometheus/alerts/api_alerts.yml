@@ -1,0 +1,60 @@
+# Prometheus alert rules — API / application layer
+
+groups:
+  - name: nutratenant.api
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"api-gateway|tenent|kong"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} has been unreachable for more than 2 minutes."
+          runbook: "Check container logs: docker compose logs {{ $labels.job }}"
+
+      - alert: APIHighErrorRate
+        expr: |
+          (
+            sum(rate(nutratenant_http_requests_total{status_code=~"5.."}[5m])) by (service)
+            /
+            sum(rate(nutratenant_http_requests_total[5m])) by (service)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High 5xx error rate on {{ $labels.service }}"
+          description: "{{ $labels.service }} error rate is {{ $value | humanizePercentage }} (threshold: 5%)."
+
+      - alert: APIHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(nutratenant_http_request_duration_seconds_bucket[5m])) by (service, le)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p95 latency on {{ $labels.service }}"
+          description: "{{ $labels.service }} p95 latency is {{ $value | humanizeDuration }} (threshold: 1s)."
+
+      - alert: APIRateLimitHigh
+        expr: |
+          sum(rate(nutratenant_http_requests_total{status_code="429"}[5m])) by (service) > 10
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rate limiting spike on {{ $labels.service }}"
+          description: "{{ $labels.service }} is rate-limiting more than 10 req/s over 3 minutes."
+
+      - alert: OTelCollectorDropping
+        expr: |
+          sum(rate(otelcol_processor_dropped_metric_points[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "OTel Collector dropping data"
+          description: "OTel Collector is dropping telemetry data. Check memory_limiter configuration."

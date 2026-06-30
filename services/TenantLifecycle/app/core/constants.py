@@ -1,6 +1,0 @@
-"""Application-wide constants."""
-
-DEFAULT_PAGINATION_LIMIT: int = 20
-MAX_PAGINATION_LIMIT: int = 100
-
-TRANSITION_REASON_MAX_LENGTH: int = 500

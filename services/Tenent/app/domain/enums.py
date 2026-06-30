@@ -9,6 +9,7 @@ from enum import StrEnum
 # TenantManagement enums
 # ---------------------------------------------------------------------------
 
+
 class TenantStatus(StrEnum):
     DRAFT = "draft"
     PROVISIONING = "provisioning"
@@ -39,6 +40,7 @@ VALID_TRANSITIONS: dict[TenantStatus, frozenset[TenantStatus]] = {
 # TenantLifecycle enums
 # ---------------------------------------------------------------------------
 
+
 class TenantLifecycleStatus(StrEnum):
     PROVISIONING = "provisioning"
     PENDING = "pending"
@@ -61,22 +63,30 @@ class TransitionType(StrEnum):
     DELETE = "delete"
 
 
-LIFECYCLE_VALID_TRANSITIONS: dict[TenantLifecycleStatus, frozenset[TenantLifecycleStatus]] = {
+LIFECYCLE_VALID_TRANSITIONS: dict[
+    TenantLifecycleStatus, frozenset[TenantLifecycleStatus]
+] = {
     TenantLifecycleStatus.PROVISIONING: frozenset({TenantLifecycleStatus.PENDING}),
     TenantLifecycleStatus.PENDING: frozenset({TenantLifecycleStatus.ACTIVE}),
-    TenantLifecycleStatus.ACTIVE: frozenset({
-        TenantLifecycleStatus.SUSPENDED,
-        TenantLifecycleStatus.LOCKED,
-        TenantLifecycleStatus.ARCHIVED,
-    }),
-    TenantLifecycleStatus.SUSPENDED: frozenset({
-        TenantLifecycleStatus.ACTIVE,
-        TenantLifecycleStatus.ARCHIVED,
-    }),
-    TenantLifecycleStatus.LOCKED: frozenset({
-        TenantLifecycleStatus.ACTIVE,
-        TenantLifecycleStatus.ARCHIVED,
-    }),
+    TenantLifecycleStatus.ACTIVE: frozenset(
+        {
+            TenantLifecycleStatus.SUSPENDED,
+            TenantLifecycleStatus.LOCKED,
+            TenantLifecycleStatus.ARCHIVED,
+        }
+    ),
+    TenantLifecycleStatus.SUSPENDED: frozenset(
+        {
+            TenantLifecycleStatus.ACTIVE,
+            TenantLifecycleStatus.ARCHIVED,
+        }
+    ),
+    TenantLifecycleStatus.LOCKED: frozenset(
+        {
+            TenantLifecycleStatus.ACTIVE,
+            TenantLifecycleStatus.ARCHIVED,
+        }
+    ),
     TenantLifecycleStatus.ARCHIVED: frozenset({TenantLifecycleStatus.DELETED}),
     TenantLifecycleStatus.DELETED: frozenset(),
 }
@@ -85,6 +95,7 @@ LIFECYCLE_VALID_TRANSITIONS: dict[TenantLifecycleStatus, frozenset[TenantLifecyc
 # ---------------------------------------------------------------------------
 # TenantIsolation enums
 # ---------------------------------------------------------------------------
+
 
 class PolicyType(StrEnum):
     STRICT = "strict"

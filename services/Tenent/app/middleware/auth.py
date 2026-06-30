@@ -1,4 +1,5 @@
 """JWT Bearer Token authentication — applied as a FastAPI dependency."""
+
 from __future__ import annotations
 
 import logging

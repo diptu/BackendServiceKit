@@ -7,15 +7,12 @@ import os
 from collections.abc import AsyncIterator
 from typing import Generator
 
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Use SQLite for tests — must be set before app imports trigger engine creation
-os.environ.setdefault(
-    "DATABASE_URL", "sqlite+aiosqlite:///./test_tenent.db"
-)
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test_tenent.db")
 
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.dependencies import get_db

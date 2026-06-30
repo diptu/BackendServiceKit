@@ -17,8 +17,12 @@ class IsolationPolicy(Base, TimestampMixin):
     id: Mapped[UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[UUID] = mapped_column(nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    policy_type: Mapped[str] = mapped_column(String(50), nullable=False, default="strict")
-    allow_cross_tenant_read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    policy_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="strict"
+    )
+    allow_cross_tenant_read: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     allowed_partner_tenant_ids: Mapped[list[Any]] = mapped_column(
         JSON, nullable=False, default=list
     )

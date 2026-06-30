@@ -1,0 +1,69 @@
+# Grafana Promtail — Docker container log scraper for NutraTenant
+# Discovers all containers and ships JSON logs to Loki
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+    batchwait: 1s
+    batchsize: 1048576
+
+scrape_configs:
+  - job_name: docker-containers
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: label
+            values: ["com.docker.compose.project"]
+
+    relabel_configs:
+      # Use Docker container name as the service label (strip prefix)
+      - source_labels: [__meta_docker_container_name]
+        regex: /backendservicekit-(.+)
+        target_label: service
+        replacement: "${1}"
+
+      # Keep original container name
+      - source_labels: [__meta_docker_container_name]
+        target_label: container
+
+      # Service image
+      - source_labels: [__meta_docker_container_image]
+        target_label: image
+
+    pipeline_stages:
+      # Parse JSON log lines emitted by our structured loggers
+      - json:
+          expressions:
+            level: level
+            trace_id: trace_id
+            span_id: span_id
+            service: service
+            message: message
+
+      # Promote level to a Loki label for fast filtering
+      - labels:
+          level:
+          trace_id:
+
+      # Use the log timestamp field if available
+      - timestamp:
+          source: time
+          format: "2006-01-02T15:04:05"
+          fallback_formats:
+            - RFC3339
+          action_on_failure: skip
+
+      # Drop health check and metrics noise
+      - drop:
+          expression: '.*"path":"/health.*'
+          drop_counter_reason: health_check_noise
+      - drop:
+          expression: '.*"path":"/metrics.*'
+          drop_counter_reason: metrics_scrape_noise

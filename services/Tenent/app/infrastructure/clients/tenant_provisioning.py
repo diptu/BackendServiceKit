@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 class TenantProvisioningClient:
-
     async def start_provisioning(self, tenant_id: UUID) -> None:
         """Notify TenantProvisioning to start the provisioning workflow.
 

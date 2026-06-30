@@ -26,7 +26,6 @@ class TenantFilter:
 
 
 class TenantRepository(BaseRepository[Tenant]):
-
     async def create(self, tenant: Tenant) -> Tenant:
         self._session.add(tenant)
         await self._session.flush()

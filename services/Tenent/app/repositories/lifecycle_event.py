@@ -7,11 +7,15 @@ from uuid import UUID
 from sqlalchemy import func, or_, select
 
 from app.models.lifecycle_event import TenantLifecycleEvent
-from app.repositories.base import BaseRepository, PageResult, decode_cursor, encode_cursor
+from app.repositories.base import (
+    BaseRepository,
+    PageResult,
+    decode_cursor,
+    encode_cursor,
+)
 
 
 class LifecycleEventRepository(BaseRepository[TenantLifecycleEvent]):
-
     async def create(self, event: TenantLifecycleEvent) -> TenantLifecycleEvent:
         self._session.add(event)
         await self._session.flush()
@@ -57,6 +61,10 @@ class LifecycleEventRepository(BaseRepository[TenantLifecycleEvent]):
         has_more = len(rows) > limit
         items = list(rows[:limit])
         cursor = (
-            encode_cursor(items[-1].occurred_at, items[-1].id) if has_more and items else None
+            encode_cursor(items[-1].occurred_at, items[-1].id)
+            if has_more and items
+            else None
         )
-        return PageResult(items=items, total=total, has_more=has_more, next_cursor=cursor)
+        return PageResult(
+            items=items, total=total, has_more=has_more, next_cursor=cursor
+        )

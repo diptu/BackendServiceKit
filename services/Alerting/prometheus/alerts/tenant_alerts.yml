@@ -1,0 +1,35 @@
+# Prometheus alert rules — NutraTenant business logic
+
+groups:
+  - name: nutratenant.business
+    rules:
+      - alert: TenantIsolationViolationSpike
+        expr: |
+          sum(rate(nutratenant_isolation_violations_total[5m])) > 0.17
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Cross-tenant isolation violation spike detected"
+          description: "Isolation violations are occurring at {{ $value | humanize }} per second (threshold: 10/min). Possible security event."
+          runbook: "Check isolation service logs and audit trail immediately."
+
+      - alert: TenantActivePoliciesLow
+        expr: |
+          nutratenant_isolation_active_policies < 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No active isolation policies"
+          description: "The isolation service reports zero active policies. Tenants may lack protection boundaries."
+
+      - alert: TenantIsolationCheckSlow
+        expr: |
+          histogram_quantile(0.95, rate(nutratenant_isolation_check_duration_seconds_bucket[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Isolation checks are slow (p95 > 100ms)"
+          description: "Tenant isolation access checks are taking {{ $value | humanizeDuration }} at p95."

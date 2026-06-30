@@ -1,4 +1,5 @@
 """Per-tenant rate limiting via slowapi."""
+
 from __future__ import annotations
 
 from fastapi import Request

@@ -1,0 +1,49 @@
+# Prometheus Alertmanager — NutraTenant alert routing
+
+global:
+  resolve_timeout: 5m
+  # SMTP configuration (configure via environment variables in production)
+  # smtp_smarthost: '${SMTP_HOST}:${SMTP_PORT}'
+  # smtp_from: 'alerts@nutratenant.io'
+
+# Route tree — default route handles all alerts
+route:
+  group_by: [alertname, service, environment]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  receiver: default-receiver
+  routes:
+    # Critical alerts route (p1) — fire immediately
+    - matchers:
+        - severity = critical
+      group_wait: 0s
+      repeat_interval: 15m
+      receiver: critical-receiver
+
+    # Warning alerts route (p2)
+    - matchers:
+        - severity = warning
+      repeat_interval: 4h
+      receiver: default-receiver
+
+receivers:
+  - name: default-receiver
+    # Webhook placeholder — replace with Slack/email/PagerDuty in production
+    webhook_configs:
+      - url: "http://localhost:9999/alerts"
+        send_resolved: true
+        max_alerts: 0
+
+  - name: critical-receiver
+    webhook_configs:
+      - url: "http://localhost:9999/critical"
+        send_resolved: true
+
+# Inhibition rules — suppress lower-severity alerts when higher-severity fires
+inhibit_rules:
+  - source_matchers:
+      - severity = critical
+    target_matchers:
+      - severity = warning
+    equal: [alertname, service]

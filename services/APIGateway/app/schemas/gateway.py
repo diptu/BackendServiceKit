@@ -43,3 +43,44 @@ class ReadyResponse(AppBaseModel):
     status: str
     redis: str
     rabbitmq: str
+
+
+class KongServiceInfo(AppBaseModel):
+    id: str
+    name: str
+    host: str | None = None
+    port: int | None = None
+    protocol: str | None = None
+    tags: list[str] = []
+
+
+class KongRouteInfo(AppBaseModel):
+    id: str
+    name: str | None = None
+    paths: list[str] | None = None
+    protocols: list[str] = []
+    tags: list[str] = []
+
+
+class KongPluginInfo(AppBaseModel):
+    id: str
+    name: str
+    enabled: bool
+    tags: list[str] = []
+
+
+class KongStatusResponse(AppBaseModel):
+    available: bool
+    version: str | None = None
+    hostname: str | None = None
+    database: str = "off"
+    services_count: int = 0
+    routes_count: int = 0
+    plugins_count: int = 0
+
+
+class KongSyncResponse(AppBaseModel):
+    synced: list[str]
+    skipped: list[str]
+    failed: list[str]
+    total: int

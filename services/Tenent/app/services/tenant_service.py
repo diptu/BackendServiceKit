@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -188,9 +187,7 @@ class TenantService:
         )
         return await self._contact_repo.create(contact)
 
-    async def remove_owner(
-        self, tenant_id: uuid.UUID, contact_id: uuid.UUID
-    ) -> None:
+    async def remove_owner(self, tenant_id: uuid.UUID, contact_id: uuid.UUID) -> None:
         contact = await self._contact_repo.get_by_id(contact_id)
         if contact is None or contact.tenant_id != tenant_id:
             raise TenantContactNotFoundError(contact_id)

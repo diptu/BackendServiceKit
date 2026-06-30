@@ -15,7 +15,9 @@ class TenantLifecycleState(Base):
     """Current lifecycle state for a single tenant (one row per tenant)."""
 
     __tablename__ = "tenant_lifecycle_states"
-    __table_args__ = (Index("idx_lifecycle_states_tenant_id", "tenant_id", unique=True),)
+    __table_args__ = (
+        Index("idx_lifecycle_states_tenant_id", "tenant_id", unique=True),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
 

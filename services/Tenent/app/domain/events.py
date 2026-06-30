@@ -6,8 +6,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
-from app.domain.enums import TenantStatus
-
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -16,6 +14,7 @@ def _utcnow() -> datetime:
 # ---------------------------------------------------------------------------
 # TenantManagement events
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class TenantCreated:
@@ -135,6 +134,7 @@ class TenantOwnerRemoved:
 # TenantLifecycle events
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class TenantPended:
     tenant_id: UUID
@@ -165,6 +165,7 @@ class TenantUnlocked:
 # ---------------------------------------------------------------------------
 # TenantIsolation events
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class IsolationViolationDetected:

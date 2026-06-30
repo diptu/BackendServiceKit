@@ -1,0 +1,72 @@
+# Grafana datasource provisioning — auto-configured on startup
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    url: http://prometheus:9090
+    access: proxy
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    url: http://tempo:3200
+    access: proxy
+    editable: false
+    jsonData:
+      httpMethod: GET
+      serviceMap:
+        datasourceUid: prometheus
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        tags:
+          - key: service.name
+            value: service
+        filterByTraceID: true
+        filterBySpanID: false
+        customQuery: false
+      tracesToMetrics:
+        datasourceUid: prometheus
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        tags:
+          - key: service.name
+            value: service
+        queries:
+          - name: Request rate
+            query: sum(rate(nutratenant_http_requests_total{service="$__tags_service"}[5m]))
+      nodeGraph:
+        enabled: true
+      lokiSearch:
+        datasourceUid: loki
+      traceQuery:
+        timeShiftEnabled: true
+        spanStartTimeShift: "1h"
+        spanEndTimeShift: "-1h"
+      spanBar:
+        type: Tag
+        tag: http.path
+
+  - name: Loki
+    type: loki
+    uid: loki
+    url: http://loki:3100
+    access: proxy
+    editable: false
+    jsonData:
+      derivedFields:
+        - datasourceUid: tempo
+          matcherRegex: '"trace_id":"([a-f0-9]{32})"'
+          name: TraceID
+          url: "${__value.raw}"
+          urlDisplayLabel: "View Trace in Tempo"

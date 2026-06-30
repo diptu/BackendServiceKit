@@ -18,5 +18,8 @@ async def test_health(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_ready(client: AsyncClient) -> None:
     r = await client.get("/ready")
-    assert r.status_code == 200
-    assert r.json()["status"] == "ready"
+    # 200 (all deps up) or 503 (degraded — expected in test env without Redis)
+    assert r.status_code in (200, 503)
+    data = r.json()
+    assert data["status"] in ("ok", "degraded")
+    assert "dependencies" in data

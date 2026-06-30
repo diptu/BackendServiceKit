@@ -10,11 +10,15 @@ from sqlalchemy.exc import IntegrityError
 
 from app.domain.exceptions import ResourceClaimConflictError
 from app.models.resource_claim import ResourceClaim
-from app.repositories.base import BaseRepository, PageResult, decode_cursor, encode_cursor
+from app.repositories.base import (
+    BaseRepository,
+    PageResult,
+    decode_cursor,
+    encode_cursor,
+)
 
 
 class ResourceClaimRepository(BaseRepository[ResourceClaim]):
-
     async def claim(
         self,
         tenant_id: UUID,
@@ -26,7 +30,9 @@ class ResourceClaimRepository(BaseRepository[ResourceClaim]):
         if existing is not None:
             if existing.tenant_id == tenant_id:
                 return existing
-            raise ResourceClaimConflictError(resource_id, resource_type, existing.tenant_id)
+            raise ResourceClaimConflictError(
+                resource_id, resource_type, existing.tenant_id
+            )
 
         claim = ResourceClaim(
             id=uuid4(),
@@ -111,9 +117,13 @@ class ResourceClaimRepository(BaseRepository[ResourceClaim]):
         has_more = len(rows) > limit
         items = list(rows[:limit])
         cursor = (
-            encode_cursor(items[-1].claimed_at, items[-1].id) if has_more and items else None
+            encode_cursor(items[-1].claimed_at, items[-1].id)
+            if has_more and items
+            else None
         )
-        return PageResult(items=items, total=total, has_more=has_more, next_cursor=cursor)
+        return PageResult(
+            items=items, total=total, has_more=has_more, next_cursor=cursor
+        )
 
     async def bulk_claim(
         self,

@@ -1,4 +1,5 @@
 """X-Request-ID middleware — injects/propagates request IDs."""
+
 from __future__ import annotations
 
 import uuid

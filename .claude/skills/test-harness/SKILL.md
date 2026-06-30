@@ -3,7 +3,7 @@ name: test-harness
 description: Scaffold unit/integration tests using enterprise standard fixtures.
 ---
 # Test Harness Protocol
-
+- **Execution**: Run `/test <service_name>`.
 1. **Detection**: Identify the target service and the desired test type (`unit`, `integration`, `e2e`).
 2. **Standardization**:
    - For `unit`, use `pytest.mark.asyncio`.

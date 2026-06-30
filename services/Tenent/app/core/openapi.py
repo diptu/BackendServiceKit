@@ -83,12 +83,29 @@ R_423: dict[str, Any] = {
     "description": "Locked — tenant is archived and read-only.",
     "content": {
         "application/json": {
-            "example": {"detail": f"Tenant {_TENANT_ID_EXAMPLE} is archived and read-only."}
+            "example": {
+                "detail": f"Tenant {_TENANT_ID_EXAMPLE} is archived and read-only."
+            }
         }
     },
 }
 
 RESPONSES_READ: dict[int | str, dict[str, Any]] = {401: R_401, 403: R_403, 404: R_404}
-RESPONSES_WRITE: dict[int | str, dict[str, Any]] = {401: R_401, 403: R_403, 404: R_404, 409: R_409_CONFLICT, 423: R_423}
-RESPONSES_CREATE: dict[int | str, dict[str, Any]] = {401: R_401, 403: R_403, 409: R_409_CONFLICT}
-RESPONSES_TRANSITION: dict[int | str, dict[str, Any]] = {401: R_401, 403: R_403, 404: R_404, 409: R_409_CONFLICT}
+RESPONSES_WRITE: dict[int | str, dict[str, Any]] = {
+    401: R_401,
+    403: R_403,
+    404: R_404,
+    409: R_409_CONFLICT,
+    423: R_423,
+}
+RESPONSES_CREATE: dict[int | str, dict[str, Any]] = {
+    401: R_401,
+    403: R_403,
+    409: R_409_CONFLICT,
+}
+RESPONSES_TRANSITION: dict[int | str, dict[str, Any]] = {
+    401: R_401,
+    403: R_403,
+    404: R_404,
+    409: R_409_CONFLICT,
+}

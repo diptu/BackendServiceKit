@@ -20,7 +20,9 @@ class Settings(BaseSettings):
     # Application
     app_name: str = "nutratenant-tenent"
     app_version: str = "0.1.0"
-    environment: Literal["development", "testing", "staging", "production"] = "development"
+    environment: Literal["development", "testing", "staging", "production"] = (
+        "development"
+    )
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
 

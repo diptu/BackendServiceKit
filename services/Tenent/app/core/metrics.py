@@ -1,4 +1,5 @@
 """Prometheus metrics for the Tenent service."""
+
 from __future__ import annotations
 
 from prometheus_client import (  # type: ignore[import-untyped]

@@ -11,7 +11,6 @@ from app.repositories.base import BaseRepository
 
 
 class TenantContactRepository(BaseRepository[TenantContact]):
-
     async def get_active_by_tenant(self, tenant_id: UUID) -> list[TenantContact]:
         result = await self._session.execute(
             select(TenantContact)

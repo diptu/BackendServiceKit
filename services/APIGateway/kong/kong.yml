@@ -1,0 +1,170 @@
+# NutraTenant — Kong DB-less declarative configuration (Kong 3.x)
+#
+# Port layout:
+#   8000  Kong proxy (public edge, replaces FastAPI APIGateway on 8000)
+#   8001  Kong Admin API (internal/dev only — conflicts with tenant-management; stop TM when running Kong)
+#   8080  FastAPI APIGateway (moved inward — management + Redis cache + RabbitMQ events)
+#   8005  Tenent combined service (TenantManagement + TenantLifecycle + TenantIsolation)
+#   8003  TenantProvisioning
+
+_format_version: "3.0"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# UPSTREAM SERVICES
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+  - name: nutratenant-tenent
+    url: http://tenent:8000
+    connect_timeout: 30000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 2
+    tags: [tenent]
+
+  - name: nutratenant-tenant-provisioning
+    url: http://tenant-provisioning:8000
+    connect_timeout: 30000
+    read_timeout: 60000   # provisioning jobs can take longer
+    write_timeout: 30000
+    retries: 1
+    tags: [provisioning]
+
+  - name: nutratenant-api-gateway
+    url: http://api-gateway:8080
+    connect_timeout: 5000
+    read_timeout: 10000
+    write_timeout: 5000
+    retries: 0
+    tags: [management]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ROUTES
+# ──────────────────────────────────────────────────────────────────────────────
+
+routes:
+  # Tenant CRUD, settings, owners, metadata, TM-side lifecycle transitions
+  - name: tenants-route
+    service: nutratenant-tenent
+    paths: [/api/v1/tenants]
+    strip_path: false
+    preserve_host: false
+    protocols: [http, https]
+    tags: [tenent]
+
+  # Authoritative state machine (provision → pending → active, suspend, lock, archive, delete)
+  - name: lifecycle-route
+    service: nutratenant-tenent
+    paths: [/api/v1/lifecycle]
+    strip_path: false
+    preserve_host: false
+    protocols: [http, https]
+    tags: [tenent]
+
+  # Cross-tenant access enforcement, resource claims, policy management
+  - name: isolation-route
+    service: nutratenant-tenent
+    paths: [/api/v1/isolation]
+    strip_path: false
+    preserve_host: false
+    protocols: [http, https]
+    tags: [tenent]
+
+  # Celery-backed async infrastructure setup jobs
+  - name: provisioning-route
+    service: nutratenant-tenant-provisioning
+    paths: [/api/v1/provisioning]
+    strip_path: false
+    preserve_host: false
+    protocols: [http, https]
+    tags: [provisioning]
+
+  # Gateway management: route registry, cache stats, upstream health, Kong inspection
+  - name: gateway-management-route
+    service: nutratenant-api-gateway
+    paths: [/api/v1/gateway]
+    strip_path: false
+    preserve_host: false
+    protocols: [http, https]
+    tags: [management]
+
+  # Health and readiness probes (proxied through to FastAPI APIGateway)
+  - name: health-route
+    service: nutratenant-api-gateway
+    paths: [/health, /ready]
+    strip_path: false
+    preserve_host: false
+    protocols: [http, https]
+    tags: [health]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PLUGINS (global unless route/service is specified)
+# ──────────────────────────────────────────────────────────────────────────────
+
+plugins:
+  # CORS — allow cross-origin requests from front-end and internal clients
+  - name: cors
+    config:
+      origins: ["*"]
+      methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD]
+      headers: [Authorization, Content-Type, X-Tenant-ID, X-Request-ID]
+      exposed_headers: [X-Cache, X-Request-ID, X-Kong-Upstream-Latency, X-Kong-Proxy-Latency]
+      credentials: true
+      max_age: 3600
+
+  # Correlation ID — inject/propagate X-Request-ID for distributed tracing
+  - name: correlation-id
+    config:
+      header_name: X-Request-ID
+      generator: uuid
+      echo_downstream: true
+
+  # Prometheus — expose /metrics on Kong Admin port for Grafana scraping
+  - name: prometheus
+    config:
+      status_code_metrics: true
+      latency_metrics: true
+      bandwidth_metrics: true
+      upstream_health_metrics: true
+
+  # Request-Transformer — stamp all requests with gateway identity
+  - name: request-transformer
+    config:
+      add:
+        headers: ["X-Forwarded-Gateway:nutratenant-kong"]
+
+  # Rate-Limiting — global coarse limit (per-route plugins tighten this)
+  - name: rate-limiting
+    config:
+      minute: 1000
+      policy: local
+      hide_client_headers: false
+      fault_tolerant: true
+
+  # Tighter limit on expensive provisioning route
+  - name: rate-limiting
+    route: provisioning-route
+    config:
+      minute: 60
+      policy: local
+      fault_tolerant: true
+
+  # Moderate limit on isolation validation (hot path in multi-tenant checks)
+  - name: rate-limiting
+    route: isolation-route
+    config:
+      minute: 500
+      policy: local
+      fault_tolerant: true
+
+  # Distributed tracing — inject W3C traceparent on all requests and export spans via HTTP OTLP
+  # Kong uses HTTP (not gRPC) for the opentelemetry plugin
+  - name: opentelemetry
+    config:
+      endpoint: http://otel-collector:4318/v1/traces
+      resource_attributes:
+        service.name: nutratenant-kong
+        deployment.environment: development
+      header_type: w3c
+      batch_span_count: 200
+      batch_flush_delay: 3

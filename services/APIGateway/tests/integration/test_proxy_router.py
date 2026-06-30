@@ -1,7 +1,6 @@
 """Integration tests for the proxy router.
 
-The upstream services (TenantManagement, TenantLifecycle) are mocked using
-httpx.MockTransport so no real network connections are made.
+Upstream services are mocked via httpx.MockTransport — no real network connections.
 """
 
 from __future__ import annotations
@@ -18,7 +17,7 @@ from app.main import app
 from app.services.cache_service import CacheService
 
 # ---------------------------------------------------------------------------
-# Mock transport — returns pre-canned responses for upstream URLs
+# Shared fixtures
 # ---------------------------------------------------------------------------
 
 _TENANT_ID = "550e8400-e29b-41d4-a716-446655440000"
@@ -27,6 +26,12 @@ _TENANT_DETAIL = {
     "id": _TENANT_ID,
     "name": "Acme Corp",
     "status": "active",
+}
+
+_LIFECYCLE_STATE = {
+    "tenant_id": _TENANT_ID,
+    "current_status": "active",
+    "previous_status": "pending",
 }
 
 _LIFECYCLE_HISTORY = {
@@ -39,17 +44,24 @@ _LIFECYCLE_HISTORY = {
 
 _TENANTS_LIST = {"items": [_TENANT_DETAIL], "total": 1}
 
+_ISOLATION_VALIDATE = {
+    "decision": "allow",
+    "violations": [],
+    "caller_tenant_id": _TENANT_ID,
+    "resource_type": "document",
+}
+
 
 def _mock_handler(request: httpx.Request) -> httpx.Response:
-    """Simple dispatcher for mocked upstream requests."""
+    """Single dispatcher for all mocked upstream requests."""
     path = request.url.path
 
+    # --- /api/v1/tenants ---
     if path == f"/api/v1/tenants/{_TENANT_ID}":
         if request.method == "GET":
             return httpx.Response(200, json=_TENANT_DETAIL)
-        if request.method == "PUT":
-            updated = {**_TENANT_DETAIL, "name": "Updated Corp"}
-            return httpx.Response(200, json=updated)
+        if request.method in ("PUT", "PATCH"):
+            return httpx.Response(200, json={**_TENANT_DETAIL, "name": "Updated Corp"})
 
     if path == "/api/v1/tenants":
         if request.method == "GET":
@@ -57,11 +69,22 @@ def _mock_handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST":
             return httpx.Response(201, json=_TENANT_DETAIL)
 
-    if path == f"/api/v1/tenant-lifecycle/{_TENANT_ID}/history":
+    # --- /api/v1/lifecycle ---
+    if path == f"/api/v1/lifecycle/{_TENANT_ID}/history":
         return httpx.Response(200, json=_LIFECYCLE_HISTORY)
 
-    if path == f"/api/v1/tenant-lifecycle/{_TENANT_ID}/activate":
-        return httpx.Response(200, json={"tenant_id": _TENANT_ID, "current_status": "active"})
+    if path == f"/api/v1/lifecycle/{_TENANT_ID}/activate":
+        return httpx.Response(200, json=_LIFECYCLE_STATE)
+
+    if path == f"/api/v1/lifecycle/{_TENANT_ID}/provisioning":
+        return httpx.Response(200, json={**_LIFECYCLE_STATE, "current_status": "provisioning"})
+
+    # --- /api/v1/isolation ---
+    if path == "/api/v1/isolation/validate":
+        return httpx.Response(200, json=_ISOLATION_VALIDATE)
+
+    if path == "/api/v1/isolation/check-access":
+        return httpx.Response(200, json={"decision": "allow", "reason": "same-tenant"})
 
     return httpx.Response(404, json={"detail": "not found"})
 
@@ -88,15 +111,14 @@ async def proxy_client(fake_redis: FakeRedis) -> AsyncClient:
 
 
 # ---------------------------------------------------------------------------
-# TenantManagement proxy tests
+# Tenants proxy
 # ---------------------------------------------------------------------------
 
 async def test_proxy_get_tenant_returns_upstream_response(proxy_client: AsyncClient) -> None:
     resp = await proxy_client.get(f"/api/v1/tenants/{_TENANT_ID}")
     assert resp.status_code == 200
-    body = resp.json()
-    assert body["id"] == _TENANT_ID
-    assert body["status"] == "active"
+    assert resp.json()["id"] == _TENANT_ID
+    assert resp.json()["status"] == "active"
 
 
 async def test_proxy_get_tenant_is_cache_miss_first_time(proxy_client: AsyncClient) -> None:
@@ -133,11 +155,11 @@ async def test_proxy_get_tenants_list(proxy_client: AsyncClient) -> None:
 
 
 # ---------------------------------------------------------------------------
-# TenantLifecycle proxy tests
+# Lifecycle proxy  (new path: /api/v1/lifecycle/*)
 # ---------------------------------------------------------------------------
 
 async def test_proxy_get_lifecycle_history(proxy_client: AsyncClient) -> None:
-    resp = await proxy_client.get(f"/api/v1/tenant-lifecycle/{_TENANT_ID}/history")
+    resp = await proxy_client.get(f"/api/v1/lifecycle/{_TENANT_ID}/history")
     assert resp.status_code == 200
     body = resp.json()
     assert body["tenant_id"] == _TENANT_ID
@@ -145,14 +167,14 @@ async def test_proxy_get_lifecycle_history(proxy_client: AsyncClient) -> None:
 
 
 async def test_proxy_lifecycle_get_cached_on_second_call(proxy_client: AsyncClient) -> None:
-    await proxy_client.get(f"/api/v1/tenant-lifecycle/{_TENANT_ID}/history")
-    resp = await proxy_client.get(f"/api/v1/tenant-lifecycle/{_TENANT_ID}/history")
+    await proxy_client.get(f"/api/v1/lifecycle/{_TENANT_ID}/history")
+    resp = await proxy_client.get(f"/api/v1/lifecycle/{_TENANT_ID}/history")
     assert resp.headers.get("x-cache") == "HIT"
 
 
 async def test_proxy_lifecycle_activate_bypasses_cache(proxy_client: AsyncClient) -> None:
     resp = await proxy_client.put(
-        f"/api/v1/tenant-lifecycle/{_TENANT_ID}/activate",
+        f"/api/v1/lifecycle/{_TENANT_ID}/activate",
         json={},
     )
     assert resp.status_code == 200
@@ -160,26 +182,56 @@ async def test_proxy_lifecycle_activate_bypasses_cache(proxy_client: AsyncClient
 
 
 # ---------------------------------------------------------------------------
+# Isolation proxy  (new: /api/v1/isolation/*)
+# ---------------------------------------------------------------------------
+
+async def test_proxy_isolation_validate(proxy_client: AsyncClient) -> None:
+    resp = await proxy_client.post(
+        "/api/v1/isolation/validate",
+        json={
+            "caller_tenant_id": _TENANT_ID,
+            "resource_ids": ["res-1"],
+            "resource_type": "document",
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["decision"] == "allow"
+    assert resp.headers.get("x-cache") == "BYPASS"
+
+
+async def test_proxy_isolation_check_access(proxy_client: AsyncClient) -> None:
+    resp = await proxy_client.post(
+        "/api/v1/isolation/check-access",
+        json={
+            "caller_tenant_id": _TENANT_ID,
+            "target_tenant_id": _TENANT_ID,
+            "resource_id": "res-1",
+            "resource_type": "document",
+            "action": "read",
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["decision"] == "allow"
+
+
+# ---------------------------------------------------------------------------
 # Cache invalidation
 # ---------------------------------------------------------------------------
 
 async def test_write_invalidates_tenant_cache(proxy_client: AsyncClient, fake_redis: FakeRedis) -> None:
-    """After a GET (cache miss), a PUT with X-Tenant-ID purges the cached entry."""
-    # Prime the cache
+    # Prime cache
     await proxy_client.get(f"/api/v1/tenants/{_TENANT_ID}")
-
-    # Verify it's now in cache
     resp2 = await proxy_client.get(f"/api/v1/tenants/{_TENANT_ID}")
     assert resp2.headers.get("x-cache") == "HIT"
 
-    # Write with tenant ID header → triggers invalidation
+    # Write with X-Tenant-ID triggers invalidation
     await proxy_client.put(
         f"/api/v1/tenants/{_TENANT_ID}",
         json={"name": "Updated Corp"},
         headers={"X-Tenant-ID": _TENANT_ID},
     )
 
-    # Next GET should be a fresh miss
+    # Next GET is a fresh miss
     resp4 = await proxy_client.get(f"/api/v1/tenants/{_TENANT_ID}")
     assert resp4.headers.get("x-cache") == "MISS"
 
@@ -194,6 +246,12 @@ async def test_proxy_unknown_path_returns_404(proxy_client: AsyncClient) -> None
     assert "No upstream route found" in resp.json()["detail"]
 
 
+async def test_old_tenant_lifecycle_path_returns_404(proxy_client: AsyncClient) -> None:
+    """The legacy /api/v1/tenant-lifecycle path is no longer registered."""
+    resp = await proxy_client.get(f"/api/v1/tenant-lifecycle/{_TENANT_ID}/history")
+    assert resp.status_code == 404
+
+
 # ---------------------------------------------------------------------------
 # Gateway management endpoints are NOT proxied
 # ---------------------------------------------------------------------------
@@ -203,7 +261,7 @@ async def test_gateway_routes_endpoint_not_proxied(proxy_client: AsyncClient) ->
     assert resp.status_code == 200
     body = resp.json()
     assert "routes" in body
-    assert body["total"] == 3
+    assert body["total"] == 4
 
 
 async def test_health_endpoint_not_proxied(proxy_client: AsyncClient) -> None:

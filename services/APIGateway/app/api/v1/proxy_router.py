@@ -18,7 +18,7 @@ from app.services.route_service import RouteService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["Proxy — TenantManagement", "Proxy — TenantLifecycle"])
+router = APIRouter(tags=["Proxy — Tenent", "Proxy — TenantProvisioning"])
 
 _route_service = RouteService()
 
@@ -36,11 +36,12 @@ def _get_publisher(request: Request) -> RabbitMQPublisher | NullPublisher:
     include_in_schema=True,
     summary="Proxy request to upstream service",
     description=(
-        "Routes the request to TenantManagement or TenantLifecycle based on the URL prefix. "
-        "\n\n"
+        "Routes the request to the Tenent combined service or TenantProvisioning based on the URL prefix.\n\n"
         "**Cached prefixes:**\n"
         "- `GET /api/v1/tenants/**` — cached 5 minutes\n"
-        "- `GET /api/v1/tenant-lifecycle/**` — cached 60 seconds\n\n"
+        "- `GET /api/v1/lifecycle/**` — cached 5 minutes\n"
+        "- `GET /api/v1/isolation/**` — cached 60 seconds\n"
+        "- `GET /api/v1/provisioning/**` — cached 30 seconds\n\n"
         "**Cache invalidation:** Any write (`POST`, `PUT`, `PATCH`, `DELETE`) that includes "
         "an `X-Tenant-ID` header purges all cached responses for that tenant."
     ),

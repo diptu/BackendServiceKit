@@ -22,7 +22,9 @@ class ResourceClaimService:
         resource_type: str,
         source_service: str,
     ) -> ResourceClaim:
-        return await self._repo.claim(tenant_id, resource_id, resource_type, source_service)
+        return await self._repo.claim(
+            tenant_id, resource_id, resource_type, source_service
+        )
 
     async def bulk_claim(
         self,

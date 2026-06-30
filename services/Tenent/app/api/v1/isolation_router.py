@@ -22,7 +22,6 @@ from app.schemas.isolation import (
     BulkClaimRequest,
     CheckAccessRequest,
     CheckAccessResponse,
-    ClaimItem,
     DecisionListResponse,
     PolicyCreateRequest,
     PolicyListResponse,
@@ -99,7 +98,9 @@ async def check_access(body: CheckAccessRequest, db: DbDep) -> CheckAccessRespon
 
 
 @router.post("/resolve-context", response_model=ResolveContextResponse)
-async def resolve_context(body: ResolveContextRequest, db: DbDep) -> ResolveContextResponse:
+async def resolve_context(
+    body: ResolveContextRequest, db: DbDep
+) -> ResolveContextResponse:
     try:
         ctx = await _svc(db).resolve_context(body.token)
     except ContextResolutionError as exc:
@@ -133,7 +134,9 @@ async def validate_resource(
 
 
 @router.post("/validate-query", response_model=ValidateQueryResponse)
-async def validate_query(body: ValidateQueryRequest, db: DbDep) -> ValidateQueryResponse:
+async def validate_query(
+    body: ValidateQueryRequest, db: DbDep
+) -> ValidateQueryResponse:
     try:
         valid, reason = await _svc(db).validate_query(
             body.caller_tenant_id, body.filters
@@ -207,7 +210,9 @@ async def update_policy(
 
 
 @router.post("/claims", response_model=ResourceClaimResponse, status_code=201)
-async def claim_resource(body: ResourceClaimRequest, db: DbDep) -> ResourceClaimResponse:
+async def claim_resource(
+    body: ResourceClaimRequest, db: DbDep
+) -> ResourceClaimResponse:
     try:
         claim = await _claim_svc(db).claim(
             tenant_id=body.tenant_id,
@@ -220,7 +225,9 @@ async def claim_resource(body: ResourceClaimRequest, db: DbDep) -> ResourceClaim
     return ResourceClaimResponse.model_validate(claim)
 
 
-@router.post("/claims/bulk", response_model=list[ResourceClaimResponse], status_code=201)
+@router.post(
+    "/claims/bulk", response_model=list[ResourceClaimResponse], status_code=201
+)
 async def bulk_claim(
     body: BulkClaimRequest, db: DbDep, tenant_id: UUID = Query(...)
 ) -> list[ResourceClaimResponse]:

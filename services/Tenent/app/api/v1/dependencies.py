@@ -8,7 +8,6 @@ from uuid import UUID
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.exceptions import PolicyNotFoundError, TenantNotFoundError
 from app.infrastructure.database.dependencies import get_db
 from app.models.isolation_policy import IsolationPolicy
 from app.models.tenant import Tenant

@@ -95,9 +95,7 @@ class InvalidLifecycleTransitionError(Exception):
     def __init__(
         self, from_status: TenantLifecycleStatus, to_status: TenantLifecycleStatus
     ) -> None:
-        super().__init__(
-            f"Invalid lifecycle transition: {from_status} → {to_status}."
-        )
+        super().__init__(f"Invalid lifecycle transition: {from_status} → {to_status}.")
         self.from_status = from_status
         self.to_status = to_status
 
@@ -146,7 +144,9 @@ class ResourceClaimNotFoundError(IsolationError):
 class ResourceClaimConflictError(IsolationError):
     """409 — resource already claimed by a different tenant."""
 
-    def __init__(self, resource_id: str, resource_type: str, owner_tenant_id: UUID) -> None:
+    def __init__(
+        self, resource_id: str, resource_type: str, owner_tenant_id: UUID
+    ) -> None:
         super().__init__(
             f"Resource '{resource_id}' (type='{resource_type}') is already claimed "
             f"by tenant {owner_tenant_id}."
@@ -166,7 +166,9 @@ class InvalidQueryFilterError(IsolationError):
 class ContextResolutionError(IsolationError):
     """401 — cannot extract tenant context from the provided token."""
 
-    def __init__(self, detail: str = "Cannot resolve tenant context from token.") -> None:
+    def __init__(
+        self, detail: str = "Cannot resolve tenant context from token."
+    ) -> None:
         super().__init__(detail)
 
 

@@ -80,7 +80,9 @@ async def test_lock_unlock(client: AsyncClient) -> None:
     for endpoint in ("provision", "pend", "activate"):
         await client.put(f"/api/v1/lifecycle/{tenant_id}/{endpoint}", json={})
 
-    r = await client.put(f"/api/v1/lifecycle/{tenant_id}/lock", json={"reason": "security hold"})
+    r = await client.put(
+        f"/api/v1/lifecycle/{tenant_id}/lock", json={"reason": "security hold"}
+    )
     assert r.json()["current_status"] == "locked"
 
     r = await client.put(f"/api/v1/lifecycle/{tenant_id}/unlock", json={})

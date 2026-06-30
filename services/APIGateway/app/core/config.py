@@ -42,11 +42,16 @@ class Settings(BaseSettings):
     celery_result_backend: str = "redis://localhost:6379/5"
 
     # Upstream services
-    tenant_management_base_url: str = "http://localhost:8001"
-    tenant_lifecycle_base_url: str = "http://localhost:8002"
+    tenent_base_url: str = "http://localhost:8005"
     tenant_provisioning_base_url: str = "http://localhost:8003"
+    redis_tenent_cache_ttl: int = 300        # 5 min: tenant + lifecycle GET responses
+    redis_isolation_cache_ttl: int = 60      # 1 min: isolation decision responses
     redis_provisioning_cache_ttl: int = 30
     upstream_timeout: float = 30.0
+
+    # Kong API Gateway
+    kong_admin_url: str = "http://localhost:8001"
+    kong_enabled: bool = True
 
     # Security
     secret_key: str = "CHANGE_ME"
@@ -55,8 +60,8 @@ class Settings(BaseSettings):
     cors_allow_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:3000",
-            "http://localhost:8001",
-            "http://localhost:8002",
+            "http://localhost:8005",  # Tenent
+            "http://localhost:8003",  # TenantProvisioning
         ]
     )
 

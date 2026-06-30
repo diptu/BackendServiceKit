@@ -1,0 +1,65 @@
+# Prometheus configuration for NutraTenant
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+  external_labels:
+    platform: nutratenant
+    environment: development
+
+# Alert rules — loaded from mounted rules directory
+rule_files:
+  - /etc/prometheus/alerts/*.yml
+
+# Alertmanager integration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+      timeout: 10s
+
+scrape_configs:
+  # OTel Collector Prometheus scrape endpoint (all app metrics flow through here)
+  - job_name: otel-collector
+    static_configs:
+      - targets:
+          - otel-collector:8889
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+
+  # OTel Collector self-metrics
+  - job_name: otel-collector-internal
+    static_configs:
+      - targets:
+          - otel-collector:8888
+    metrics_path: /metrics
+
+  # Kong proxy metrics (exposed on Admin API port)
+  - job_name: kong
+    static_configs:
+      - targets:
+          - kong:8001
+    metrics_path: /metrics
+
+  # Prometheus self-monitoring
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090
+
+  # FastAPI APIGateway direct scrape (fallback if OTel pipeline is down)
+  - job_name: api-gateway
+    static_configs:
+      - targets:
+          - api-gateway:8000
+    metrics_path: /metrics
+
+  # Tenent service direct scrape
+  - job_name: tenent
+    static_configs:
+      - targets:
+          - tenent:8000
+    metrics_path: /metrics
