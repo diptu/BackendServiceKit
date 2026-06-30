@@ -265,6 +265,34 @@ async def provision_tenant(
 
 
 @router.post(
+    "/{tenant_id}/pend",
+    response_model=TenantResponse,
+    tags=["Tenant Lifecycle"],
+    summary="Mark tenant as pending compliance review",
+    description="""\
+Transition a `provisioning` tenant to `pending` state.
+
+**Valid source state:** `provisioning`
+
+Called by the Tenant Provisioning Service once infrastructure setup is complete.
+The tenant remains inaccessible until explicitly activated via `POST /activate`.
+
+Emits a `TenantProvisioningCompleted` event.
+
+Returns `409 Conflict` for all other source states.
+""",
+    responses=RESPONSES_TRANSITION,
+)
+async def pend_tenant(
+    body: TransitionRequest,
+    tenant: TenantDep,
+    db: AsyncSession = Depends(get_db),
+) -> TenantResponse:
+    updated = await TenantService(db).pend(tenant.id, body.reason)
+    return TenantResponse.model_validate(updated)
+
+
+@router.post(
     "/{tenant_id}/activate",
     response_model=TenantResponse,
     tags=["Tenant Lifecycle"],
@@ -272,10 +300,10 @@ async def provision_tenant(
     description="""\
 Transition a tenant to `active` state.
 
-**Valid source states:** `provisioning`, `suspended`
+**Valid source states:** `pending`, `suspended`
 
-- `provisioning → active`: Called once provisioning is complete and the tenant is ready for use.
-- `suspended → active`: Called by a platform administrator to reactivate a suspended tenant.
+- `pending → active`: Compliance gate cleared; tenant is now fully operational.
+- `suspended → active`: Platform administrator reactivates a suspended tenant.
 
 Emits `TenantActivated` or `TenantReactivated` event depending on the source state.
 

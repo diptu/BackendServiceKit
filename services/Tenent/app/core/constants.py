@@ -1,0 +1,30 @@
+"""Application-wide constants — merged from all three services."""
+
+# Tenant Management
+TENANT_NAME_MAX_LENGTH: int = 255
+TENANT_SLUG_PATTERN: str = r"^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+TENANT_DESCRIPTION_MAX_LENGTH: int = 1000
+
+DEFAULT_TIMEZONE: str = "UTC"
+DEFAULT_LOCALE: str = "en-US"
+DEFAULT_CURRENCY: str = "USD"
+DEFAULT_LANGUAGE: str = "en"
+DEFAULT_DATE_FORMAT: str = "YYYY-MM-DD"
+DEFAULT_SESSION_TIMEOUT_MINUTES: int = 60
+DEFAULT_THEME: str = "light"
+
+# Lifecycle
+TRANSITION_REASON_MAX_LENGTH: int = 500
+
+# Isolation
+MAX_RESOURCE_IDS_PER_REQUEST: int = 100
+MAX_RESOURCE_ID_LENGTH: int = 500
+
+CACHE_TTL_POLICY: int = 120
+CACHE_TTL_CLAIM: int = 300
+CACHE_TTL_ALLOW_DECISION: int = 60
+CACHE_TTL_DENY_DECISION: int = 30
+
+# Shared
+DEFAULT_PAGINATION_LIMIT: int = 20
+MAX_PAGINATION_LIMIT: int = 100

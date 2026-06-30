@@ -2,15 +2,17 @@
 
 Covers:
   POST /api/v1/tenants/{tenant_id}/provision
+  POST /api/v1/tenants/{tenant_id}/pend
   POST /api/v1/tenants/{tenant_id}/activate
   POST /api/v1/tenants/{tenant_id}/suspend
   POST /api/v1/tenants/{tenant_id}/archive
 
-State machine (per TenentStates.md):
+State machine (per CLAUDE.md):
   draft        → provisioning | deleted
-  provisioning → active       | deleted
-  active       → suspended    | archived | deleted
-  suspended    → active       | archived | deleted
+  provisioning → pending
+  pending      → active       | deleted
+  active       → suspended    | archived
+  suspended    → active       | archived
   archived     → deleted
 """
 
@@ -103,13 +105,55 @@ async def _force_status(tenant_id: str, status: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# POST /{tenant_id}/pend
+# ---------------------------------------------------------------------------
+
+
+async def test_pend_from_provisioning(client: AsyncClient) -> None:
+    tid = await _create_tenant(client)
+    await _force_status(tid, "provisioning")
+
+    resp = await client.post(f"{_BASE}/{tid}/pend", json={})
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "pending"
+
+
+async def test_pend_from_draft_returns_409(client: AsyncClient) -> None:
+    tid = await _create_tenant(client)
+
+    resp = await client.post(f"{_BASE}/{tid}/pend", json={})
+    assert resp.status_code == 409
+
+
+async def test_pend_from_pending_returns_409(client: AsyncClient) -> None:
+    tid = await _create_tenant(client)
+    await _force_status(tid, "pending")
+
+    resp = await client.post(f"{_BASE}/{tid}/pend", json={})
+    assert resp.status_code == 409
+
+
+async def test_pend_missing_tenant_returns_404(client: AsyncClient) -> None:
+    resp = await client.post(f"{_BASE}/{uuid4()}/pend", json={})
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
 # POST /{tenant_id}/activate
 # ---------------------------------------------------------------------------
 
 
-async def test_activate_from_provisioning(client: AsyncClient) -> None:
+async def test_activate_from_provisioning_returns_409(client: AsyncClient) -> None:
     tid = await _create_tenant(client)
     await _force_status(tid, "provisioning")
+
+    resp = await client.post(f"{_BASE}/{tid}/activate", json={})
+    assert resp.status_code == 409
+
+
+async def test_activate_from_pending(client: AsyncClient) -> None:
+    tid = await _create_tenant(client)
+    await _force_status(tid, "pending")
 
     resp = await client.post(f"{_BASE}/{tid}/activate", json={})
     assert resp.status_code == 200
@@ -147,11 +191,11 @@ async def test_activate_missing_tenant_returns_404(client: AsyncClient) -> None:
 
 async def test_activate_with_reason(client: AsyncClient) -> None:
     tid = await _create_tenant(client)
-    await _force_status(tid, "provisioning")
+    await _force_status(tid, "pending")
 
     resp = await client.post(
         f"{_BASE}/{tid}/activate",
-        json={"reason": "Provisioning complete — all resources ready."},
+        json={"reason": "Compliance review passed — all resources ready."},
     )
     assert resp.status_code == 200
     assert resp.json()["status"] == "active"
@@ -159,7 +203,7 @@ async def test_activate_with_reason(client: AsyncClient) -> None:
 
 async def test_activate_reason_too_long_returns_422(client: AsyncClient) -> None:
     tid = await _create_tenant(client)
-    await _force_status(tid, "provisioning")
+    await _force_status(tid, "pending")
 
     resp = await client.post(
         f"{_BASE}/{tid}/activate",
@@ -170,7 +214,7 @@ async def test_activate_reason_too_long_returns_422(client: AsyncClient) -> None
 
 async def test_activate_response_shape(client: AsyncClient) -> None:
     tid = await _create_tenant(client)
-    await _force_status(tid, "provisioning")
+    await _force_status(tid, "pending")
 
     body = (await client.post(f"{_BASE}/{tid}/activate", json={})).json()
     for key in ("id", "name", "status", "region", "created_at", "updated_at"):
@@ -318,7 +362,7 @@ async def test_archive_reason_too_long_returns_422(client: AsyncClient) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Full lifecycle path: draft → provisioning → active → suspended → active → archived
+# Full lifecycle path: draft → provisioning → pending → active → suspended → active → archived
 # ---------------------------------------------------------------------------
 
 
@@ -328,6 +372,10 @@ async def test_full_lifecycle_path(client: AsyncClient) -> None:
     r = await client.post(f"{_BASE}/{tid}/provision", json={})
     assert r.status_code == 200
     assert r.json()["status"] == "provisioning"
+
+    r = await client.post(f"{_BASE}/{tid}/pend", json={})
+    assert r.status_code == 200
+    assert r.json()["status"] == "pending"
 
     r = await client.post(f"{_BASE}/{tid}/activate", json={})
     assert r.status_code == 200

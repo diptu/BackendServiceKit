@@ -1,0 +1,50 @@
+[project]
+name = "tenent"
+version = "0.1.0"
+description = "Tenent — combined Tenant Management, Lifecycle, and Isolation service"
+readme = "README.md"
+requires-python = ">=3.11.9"
+dependencies = [
+    "aio-pika>=9.4.3",
+    "alembic>=1.18.4",
+    "asyncpg>=0.31.0",
+    "fastapi[standard]>=0.115.0",
+    "greenlet>=3.5.3",
+    "gunicorn>=23.0.0",
+    "httpx>=0.27.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.25.0",
+    "opentelemetry-instrumentation-fastapi>=0.46b0",
+    "opentelemetry-sdk>=1.25.0",
+    "prometheus-client>=0.20.0",
+    "pydantic-settings>=2.5.0",
+    "python-jose[cryptography]>=3.3.0",
+    "redis[hiredis]>=5.0.0",
+    "slowapi>=0.1.9",
+    "uvicorn>=0.32.0",
+]
+
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.21.0",
+    "httpx>=0.27.0",
+    "pylint>=3.3.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-mock>=3.14.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+exclude = "^(alembic/|tests/fixtures/)"
+
+[tool.pylint.messages_control]
+disable = ["all"]
+enable  = ["duplicate-code"]
+
+[tool.pylint.similarities]
+min-similarity-lines = 10
+ignore-imports = "yes"

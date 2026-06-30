@@ -26,6 +26,7 @@ from app.domain.exceptions import (
 from app.events.isolation_events import EventPublisher, publish_event
 from app.infrastructure.cache.redis_cache import (
     cache_delete,
+    cache_delete_by_prefix,
     cache_get,
     cache_get_str,
     cache_set,
@@ -308,6 +309,9 @@ class IsolationService:
         policy = await self._policy_repo.update(policy_id, **kwargs)
 
         await cache_delete(policy_cache_key(str(policy.tenant_id)))
+        # Invalidate all decision-cache entries where this tenant was the caller;
+        # without this, cached ALLOW decisions from the old policy survive the TTL.
+        await cache_delete_by_prefix(f"isolation:decision:{policy.tenant_id}:")
 
         await publish_event(
             PolicyUpdated(

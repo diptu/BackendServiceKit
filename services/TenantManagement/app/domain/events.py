@@ -40,6 +40,13 @@ class TenantProvisioningStarted:
 
 
 @dataclass
+class TenantProvisioningCompleted:
+    tenant_id: UUID
+    event_id: UUID = field(default_factory=uuid4)
+    timestamp: datetime = field(default_factory=_utcnow)
+
+
+@dataclass
 class TenantProvisioningFailed:
     tenant_id: UUID
     reason: str

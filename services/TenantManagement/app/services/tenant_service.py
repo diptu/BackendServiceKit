@@ -17,6 +17,7 @@ from app.domain.events import (
     TenantArchived,
     TenantCreated,
     TenantDeleted,
+    TenantProvisioningCompleted,
     TenantProvisioningStarted,
     TenantReactivated,
     TenantSuspended,
@@ -207,6 +208,17 @@ class TenantService:
         tenant.updated_at = datetime.now(timezone.utc)
         tenant = await self._repo.save(tenant)
         _emit(TenantProvisioningStarted(tenant_id=tenant.id))
+        return tenant
+
+    async def pend(self, tenant_id: UUID, reason: str | None = None) -> Tenant:
+        """Transition PROVISIONING → PENDING (compliance gate before activation)."""
+        tenant = await self.get(tenant_id)
+        self._check_transition(TenantStatus(tenant.status), TenantStatus.PENDING)
+
+        tenant.status = TenantStatus.PENDING
+        tenant.updated_at = datetime.now(timezone.utc)
+        tenant = await self._repo.save(tenant)
+        _emit(TenantProvisioningCompleted(tenant_id=tenant.id))
         return tenant
 
     async def activate(self, tenant_id: UUID, reason: str | None = None) -> Tenant:

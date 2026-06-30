@@ -21,8 +21,8 @@ class Tenant(TimestampMixin, Base):
     __tablename__ = "tenants"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('draft','provisioning','active','suspended','archived','deleted')",
-            name="valid_status",
+            "status IN ('draft','provisioning','pending','active','suspended','archived','deleted')",
+            name="ck_tenants_valid_status",
         ),
         Index("idx_tenants_name", "name", unique=True),
         Index("idx_tenants_status_region", "status", "region"),

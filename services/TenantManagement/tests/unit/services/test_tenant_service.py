@@ -237,9 +237,25 @@ async def test_delete_archived_tenant(svc: TenantService) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_activate_from_provisioning(svc: TenantService) -> None:
+async def test_pend_from_provisioning(svc: TenantService) -> None:
     tenant = await svc.create(_create_req())
     tenant.status = TenantStatus.PROVISIONING
+    await svc._repo.save(tenant)
+    result = await svc.pend(tenant.id)
+    assert result.status == TenantStatus.PENDING
+
+
+async def test_activate_from_provisioning_raises(svc: TenantService) -> None:
+    tenant = await svc.create(_create_req())
+    tenant.status = TenantStatus.PROVISIONING
+    await svc._repo.save(tenant)
+    with pytest.raises(InvalidTenantTransitionError):
+        await svc.activate(tenant.id)
+
+
+async def test_activate_from_pending(svc: TenantService) -> None:
+    tenant = await svc.create(_create_req())
+    tenant.status = TenantStatus.PENDING
     await svc._repo.save(tenant)
     result = await svc.activate(tenant.id)
     assert result.status == TenantStatus.ACTIVE

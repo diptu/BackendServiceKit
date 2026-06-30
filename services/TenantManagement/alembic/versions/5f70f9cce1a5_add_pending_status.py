@@ -1,7 +1,7 @@
 """add pending status
 
 Revision ID: 5f70f9cce1a5
-Revises: 35cabc56b647
+Revises: c3c86a584056
 Create Date: 2026-06-27 16:00:00.000000
 
 """

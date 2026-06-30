@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     database_max_overflow: int = 40
     database_pool_timeout: int = 30
 
-    redis_url: str = "redis://localhost:6379/5"
+    redis_url: str = "redis://localhost:6379/7"
 
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     rabbitmq_exchange: str = "tenant-isolation.events"
@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     )
 
     enable_metrics: bool = True
-    enable_tracing: bool = False
+    enable_tracing: bool = True
     otlp_endpoint: str = "http://localhost:4317"
     healthcheck_timeout_seconds: int = 5
 

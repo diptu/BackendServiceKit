@@ -38,6 +38,7 @@ class Settings(BaseSettings):
         default="postgresql+asyncpg://postgres:postgres@localhost:5433/nutratenant_tenant",
         description="Primary PostgreSQL connection string.",
     )
+    database_ssl: bool = Field(default=False, description="Require SSL for the database connection.")
     database_pool_size: int = 20
     database_max_overflow: int = 40
     database_pool_timeout: int = 30

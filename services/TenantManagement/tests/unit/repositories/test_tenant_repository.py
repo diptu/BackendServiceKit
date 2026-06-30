@@ -13,8 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.domain.enums import TenantStatus
 from app.infrastructure.database.base import Base
 from app.models import Tenant, TenantSettings, TenantMetadata, TenantContact  # noqa: F401
-from app.repositories.base import decode_cursor, encode_cursor
-from app.repositories.tenant import TenantFilter, TenantRepository
+from app.infrastructure.repositories.base import decode_cursor, encode_cursor
+from app.infrastructure.repositories.tenant import TenantFilter, TenantRepository
 
 # ---------------------------------------------------------------------------
 # Fixtures

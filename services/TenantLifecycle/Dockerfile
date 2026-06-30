@@ -5,7 +5,7 @@
 ########################################
 # Builder Stage
 ########################################
-FROM python:3.11-slim AS builder
+FROM python:3.11.9-slim AS builder
 
 LABEL maintainer="platform@nutratenant.io"
 LABEL service_name="tenant-lifecycle"

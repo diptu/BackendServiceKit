@@ -57,6 +57,23 @@ async def cache_delete(key: str) -> None:
         logger.debug("cache_delete_failed", extra={"key": key, "error": str(exc)})
 
 
+async def cache_delete_by_prefix(prefix: str) -> int:
+    """Delete all keys matching prefix via SCAN (non-blocking). Returns count deleted."""
+    deleted = 0
+    try:
+        client = get_redis()
+        cursor = 0
+        while True:
+            cursor, keys = await client.scan(cursor, match=f"{prefix}*", count=100)
+            if keys:
+                deleted += await client.delete(*keys)
+            if cursor == 0:
+                break
+    except Exception as exc:
+        logger.debug("cache_delete_by_prefix_failed", extra={"prefix": prefix, "error": str(exc)})
+    return deleted
+
+
 def policy_cache_key(tenant_id: str) -> str:
     return f"isolation:policy:{tenant_id}"
 
