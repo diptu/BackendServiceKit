@@ -1,0 +1,37 @@
+[project]
+name = "api-gateway"
+version = "0.1.0"
+description = "API Gateway — reverse proxy with Redis caching, RabbitMQ events, and Celery workers"
+readme = "README.md"
+requires-python = ">=3.11.9"
+dependencies = [
+    "fastapi[standard]>=0.115.0",
+    "httpx>=0.27.0",
+    "redis[hiredis]>=5.0.0",
+    "aio-pika>=9.4.0",
+    "celery[redis]>=5.3.6",
+    "gunicorn>=23.0.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic-settings>=2.5.0",
+]
+
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.21.0",
+    "fakeredis>=2.26.0",
+    "httpx>=0.27.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-mock>=3.14.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+exclude = "^tests/"
+
+[tool.ruff]
+line-length = 100

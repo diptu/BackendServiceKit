@@ -31,6 +31,7 @@ from app.domain.exceptions import (
     TenantLifecycleNotFoundError,
 )
 from app.infrastructure.clients.tenant_management import TenantManagementClient
+from app.infrastructure.clients.tenant_provisioning import TenantProvisioningClient
 from app.models.tenant_lifecycle_event import TenantLifecycleEvent
 from app.models.tenant_lifecycle_state import TenantLifecycleState
 from app.repositories.base import PageResult
@@ -51,12 +52,13 @@ def _emit(event: Any) -> None:
 class TenantLifecycleService:
     """Orchestrates all lifecycle transitions and history queries."""
 
-    __slots__ = ("_state_repo", "_event_repo", "_tm_client")
+    __slots__ = ("_state_repo", "_event_repo", "_tm_client", "_tp_client")
 
     def __init__(self, session: AsyncSession) -> None:
         self._state_repo = LifecycleStateRepository(session)
         self._event_repo = LifecycleEventRepository(session)
         self._tm_client = TenantManagementClient()
+        self._tp_client = TenantProvisioningClient()
 
     # ------------------------------------------------------------------
     # Public transition methods
@@ -115,6 +117,7 @@ class TenantLifecycleService:
             tenant_id=tenant_id, provisioned_by=performed_by, reason=reason
         ))
         await self._tm_client.sync_transition(tenant_id, TransitionType.PROVISION, reason=reason)
+        await self._tp_client.start_provisioning(tenant_id)
         return state
 
     async def pend(

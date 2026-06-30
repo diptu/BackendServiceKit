@@ -59,9 +59,9 @@ class Settings(BaseSettings):
     cors_allow_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:3000",
-            "http://localhost:8000",
-            "http://127.0.0.1:8000",
-            "http://localhost:8002",
+            "http://localhost:8000",  # APIGateway
+            "http://localhost:8001",  # TenantManagement
+            "http://127.0.0.1:8001",
         ]
     )
 
@@ -71,8 +71,11 @@ class Settings(BaseSettings):
     otlp_endpoint: str = "http://localhost:4317"
 
     # Downstream services
-    tenant_management_base_url: str = "http://localhost:8000"
+    tenant_management_base_url: str = "http://localhost:8001"
     tenant_management_timeout: float = 5.0
+
+    tenant_provisioning_base_url: str = "http://localhost:8003"
+    tenant_provisioning_timeout: float = 5.0
 
     # Health Checks
     healthcheck_timeout_seconds: int = 5

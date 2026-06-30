@@ -2,7 +2,7 @@
 
 | Priority | Service                           | Status          |
 | -------: | --------------------------------- | --------------- |
-|        1 | Tenant Management Service         | 📝 Planned      |
+|        1 | Tenant Management Service         | 🚧 In Progress  |
 |        2 | Organization Management Service   | 📝 Planned      |
 |        3 | Identity & Access Management (IAM) | 🚧 In Progress |
 |        4 | User Management Service           | 📝 Planned      |

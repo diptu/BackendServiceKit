@@ -8,6 +8,19 @@ A practical guide to building scalable, secure, high-performance, and production
 
 As the application grows, organize it into **domain-oriented services**. Each service owns its APIs, business logic, models, repositories, schemas, tests, documentation, and TODOs.
 
+## 0: Organize the Project as Independent Services
+
+As the application grows, organize it into **domain-oriented services**. Each service owns its APIs, business logic, models, repositories, schemas, tests, documentation, and TODOs.
+
+### Strategic Import Organization
+
+To maintain clean, readable, and manageable codebases, follow these practices:
+
+1. **The "Barrel" Pattern**: Use `__init__.py` files to export public-facing modules. This allows you to consolidate deep import paths into a single, clean import statement.
+2. **`TYPE_CHECKING` for Circular Dependencies**: Isolate type imports within `if TYPE_CHECKING:` blocks to ensure imports are only processed during static analysis, not at runtime.
+3. **Automated Sorting**: Use **Ruff** (configured in `pyproject.toml`) to enforce import order (Standard Library, Third-Party, Local Application).
+4. **Service-First Refactoring**: If a file exceeds 15 imports, it is a "code smell." Refactor into smaller domain modules or use Dependency Injection to reduce logic complexity in route handlers.
+
 ### Recommended Project Structure
 
 ```text
@@ -789,3 +802,347 @@ Always benchmark before finalizing worker counts.
 * Gunicorn + Uvicorn
 * Enable `uvloop`
 * Benchmark worker counts
+
+
+# 2.5 High-Performance Data Access & Task Management
+
+Production-grade FastAPI applications must provide low-latency responses while handling resource-intensive workloads efficiently. Achieving this requires a two-pronged strategy:
+
+- **Caching** to reduce database latency.
+- **Task orchestration** to execute long-running operations asynchronously.
+
+---
+
+# Rule 16: Implement Redis for Caching Frequently Accessed Data
+
+Database I/O is often the largest performance bottleneck in web applications. Use **Redis** to cache expensive database queries or computationally intensive results.
+
+## The Caching Pattern
+
+```python
+from redis import asyncio as aioredis
+import json
+
+# Setup Redis in your lifespan or as a dependency
+async def get_cached_user(user_id: int):
+    redis = await get_redis_client()
+
+    cached_data = await redis.get(f"user:{user_id}")
+
+    if cached_data:
+        return json.loads(cached_data)
+
+    # Cache miss: Fetch from database
+    user = await db.fetch_user(user_id)
+
+    # Cache the result with a TTL
+    await redis.setex(
+        f"user:{user_id}",
+        3600,
+        json.dumps(user)
+    )
+
+    return user
+```
+
+---
+
+## Redis Caching Best Practices
+
+### 1. Always Set a TTL (Time-To-Live)
+
+Every cached object should expire automatically to prevent stale data.
+
+```python
+await redis.setex(
+    "user:42",
+    3600,  # 1 hour
+    json.dumps(user)
+)
+```
+
+Benefits:
+
+- Prevents stale cache
+- Reduces memory usage
+- Enables automatic cache cleanup
+
+---
+
+### 2. Implement Cache Invalidation
+
+Whenever data changes, invalidate the corresponding cache entry.
+
+```python
+await db.update_user(user_id, payload)
+
+await redis.delete(f"user:{user_id}")
+```
+
+Remember:
+
+> **Cache invalidation is one of the hardest problems in computer science.**
+
+Always ensure cached objects reflect the current database state.
+
+---
+
+### 3. Redis Is Not Your Primary Database
+
+Redis should only store:
+
+- Frequently accessed data
+- Expensive database queries
+- Computationally expensive results
+- Session information
+- Rate limiting metadata
+
+Your **primary relational database** (PostgreSQL, MySQL, etc.) should always remain the source of truth.
+
+---
+
+## Typical Redis Use Cases
+
+| Use Case | Good Candidate? |
+|-----------|-----------------|
+| User Profiles | ✅ |
+| Product Catalog | ✅ |
+| Feature Flags | ✅ |
+| Session Storage | ✅ |
+| Authentication Tokens | ✅ |
+| Dashboard Statistics | ✅ |
+| Large Binary Files | ❌ |
+| Permanent Business Data | ❌ |
+
+---
+# Rule 17: ## 8: Automating Quality Control with `lint.sh` and `fix.sh`
+
+To maintain a production-grade codebase, integrate linting and formatting into your development lifecycle. Use these scripts to enforce standards consistently across your team.
+
+### `fix.sh` (Auto-Correction)
+Use this script to automatically clean up code style issues and format files according to project standards.
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Auto-fixing code..."
+uv run ruff check . --fix
+uv run ruff format .
+echo "Formatting completed."
+---
+# Rule 18: Utilize Celery for Long-Running & Blocking Tasks
+
+Although FastAPI excels at handling asynchronous I/O, it is **not designed for CPU-intensive or long-running background jobs**.
+
+Delegate such work to **Celery workers**, backed by a message broker such as:
+
+- Redis
+- RabbitMQ
+
+---
+
+## When to Use Celery
+
+Use Celery whenever a task:
+
+### Time-Consuming
+
+Examples:
+
+- PDF generation
+- Excel report generation
+- Video transcoding
+- AI inference
+- Image processing
+
+---
+
+### Depends on Slow External APIs
+
+Examples:
+
+- Email sending
+- SMS notifications
+- Payment webhooks
+- Third-party integrations
+- Batch API synchronization
+
+---
+
+### Requires Reliability
+
+If a task:
+
+- Must eventually succeed
+- Needs retries
+- Should survive server restarts
+- Can be processed later
+
+then Celery is the appropriate solution.
+
+---
+
+# Integration Strategy
+
+Keep task definitions separate from your API layer.
+
+```
+app/
+├── api/
+├── services/
+├── repositories/
+├── tasks/
+│   ├── worker.py
+│   ├── report_tasks.py
+│   ├── email_tasks.py
+│   └── notification_tasks.py
+```
+
+This separation improves maintainability and keeps business logic decoupled from HTTP request handling.
+
+---
+
+## Example Celery Worker
+
+```python
+# app/tasks/worker.py
+
+from celery import Celery
+
+celery_app = Celery(
+    "worker",
+    broker="redis://localhost:6379/0"
+)
+
+@celery_app.task(bind=True, max_retries=3)
+def process_heavy_report(self, report_id: int):
+    try:
+        # Complex business logic
+        ...
+    except Exception as exc:
+        raise self.retry(
+            exc=exc,
+            countdown=60
+        )
+```
+
+---
+
+# Production Workflow
+
+## Step 1 — Dispatch the Task
+
+Instead of executing heavy work inside the request, enqueue it.
+
+```python
+@router.post("/reports/{report_id}")
+async def generate_report(report_id: int):
+    process_heavy_report.delay(report_id)
+
+    return {
+        "message": "Report generation started."
+    }
+```
+
+The HTTP response is returned immediately while Celery processes the task asynchronously.
+
+---
+
+## Step 2 — Monitor Workers
+
+Use monitoring tools such as:
+
+- Flower
+- Prometheus
+- Grafana
+
+Monitor:
+
+- Worker health
+- Queue depth
+- Running tasks
+- Failed tasks
+- Retry counts
+
+---
+
+## Step 3 — Isolate Worker Infrastructure
+
+Deploy Celery workers separately from the FastAPI application.
+
+Example Docker architecture:
+
+```
+                ┌──────────────┐
+                │   FastAPI    │
+                └──────┬───────┘
+                       │
+             Dispatch Task
+                       │
+                ┌──────▼───────┐
+                │ Redis Queue  │
+                └──────┬────────┘
+                       │
+         ┌─────────────┴─────────────┐
+         │                           │
+┌────────▼────────┐        ┌──────────▼─────────┐
+│ Celery Worker 1 │        │ Celery Worker 2    │
+└─────────────────┘        └────────────────────┘
+```
+
+This architecture prevents heavy workloads from consuming resources needed by the API server.
+
+---
+
+# BackgroundTasks vs Celery
+
+| Feature | FastAPI BackgroundTasks | Celery |
+|----------|-------------------------|--------|
+| Persistence | In-memory (lost on crash) | Persistent (Redis/RabbitMQ) |
+| Retries | ❌ Not supported | ✅ Native retry support |
+| Exponential Backoff | ❌ | ✅ |
+| Scheduling (Cron Jobs) | ❌ | ✅ |
+| Worker Scaling | Tied to API instance | Independent workers |
+| Monitoring | Minimal | Flower, Prometheus, Grafana |
+| Complexity | Very Low | Moderate |
+| Reliability | Low | High |
+| Best For | Small background work | Production-grade asynchronous processing |
+
+---
+
+# Choosing the Right Tool
+
+## Use FastAPI `BackgroundTasks` When
+
+- Writing logs
+- Sending quick notifications
+- Cleaning temporary files
+- Lightweight cache updates
+- Tasks lasting only a few seconds
+
+---
+
+## Use Celery When
+
+- Processing reports
+- Running AI/ML inference
+- Sending bulk emails
+- Importing/exporting datasets
+- Video or image processing
+- Scheduled jobs
+- Tasks requiring retries
+- Mission-critical background workflows
+
+---
+
+# Key Takeaways
+
+- Use **Redis** to minimize database latency by caching frequently accessed or expensive-to-compute data.
+- Always configure **TTL** values and implement **cache invalidation** to maintain data consistency.
+- Treat Redis as a **cache**, not as the system of record.
+- Offload CPU-intensive or long-running tasks to **Celery** to keep API responses fast.
+- Deploy Celery workers independently from FastAPI to improve scalability and fault isolation.
+- Use **FastAPI BackgroundTasks** only for lightweight, fire-and-forget operations.
+- Choose **Celery** whenever reliability, retries, scheduling, or horizontal scaling are required.
+```

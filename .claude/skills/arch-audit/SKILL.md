@@ -2,6 +2,7 @@
 name: arch-audit
 description: Audit a service's directory structure against the Enterprise Clean Architecture standard.
 ---
+- **Execution**: Run `/arch-audit <service_name>`.
 # Architecture Audit Protocol
 
 ## 1. Compliance Standard

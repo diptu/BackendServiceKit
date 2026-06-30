@@ -1,5 +1,5 @@
 # NutraTenant — local development stack
-# Ports:  8000 = APIGateway  |  8001 = TenantManagement  |  8002 = TenantLifecycle
+# Ports:  8000 = APIGateway  |  8001 = TenantManagement  |  8002 = TenantLifecycle  |  8003 = TenantProvisioning
 #         5433 = Postgres     |  6379 = Redis             |  5672/15672 = RabbitMQ
 
 networks:
@@ -135,7 +135,8 @@ services:
       REDIS_URL: redis://redis:6379/2
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       TENANT_MANAGEMENT_BASE_URL: http://tenant-management:8000
-      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8001"]'
+      TENANT_PROVISIONING_BASE_URL: http://tenant-provisioning:8000
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8001","http://localhost:8003"]'
     depends_on:
       postgres:
         condition: service_healthy
@@ -155,6 +156,96 @@ services:
       start_period: 30s
       retries: 3
 
+  tenant-provisioning:
+    container_name: backendservicekit-tenantprovisioning
+    build:
+      context: ./services/TenantProvisioning
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8000"
+    env_file:
+      - ./services/TenantProvisioning/.env.example
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_provisioning
+      DATABASE_SSL: "false"
+      REDIS_URL: redis://redis:6379/4
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672/
+      CELERY_RESULT_BACKEND: redis://redis:6379/6
+      TENANT_LIFECYCLE_BASE_URL: http://tenant-lifecycle:8000
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8001","http://localhost:8002"]'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      tenant-lifecycle:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  tenant-provisioning-worker:
+    container_name: backendservicekit-tenantprovisioning-worker
+    build:
+      context: ./services/TenantProvisioning
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.tasks.worker.celery_app", "worker",
+              "--loglevel=info", "--concurrency=4", "--queues=celery"]
+    env_file:
+      - ./services/TenantProvisioning/.env.example
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_provisioning
+      DATABASE_SSL: "false"
+      REDIS_URL: redis://redis:6379/4
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672/
+      CELERY_RESULT_BACKEND: redis://redis:6379/6
+      TENANT_LIFECYCLE_BASE_URL: http://tenant-lifecycle:8000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+
+  tenant-provisioning-flower:
+    container_name: backendservicekit-tenantprovisioning-flower
+    build:
+      context: ./services/TenantProvisioning
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.tasks.worker.celery_app", "flower",
+              "--port=5555", "--broker=amqp://guest:guest@rabbitmq:5672/"]
+    ports:
+      - "5556:5555"
+    environment:
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672/
+      CELERY_RESULT_BACKEND: redis://redis:6379/6
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
   api-gateway:
     container_name: backendservicekit-apigateway
     build:
@@ -172,7 +263,8 @@ services:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       TENANT_MANAGEMENT_BASE_URL: http://tenant-management:8000
       TENANT_LIFECYCLE_BASE_URL: http://tenant-lifecycle:8000
-      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8001","http://localhost:8002"]'
+      TENANT_PROVISIONING_BASE_URL: http://tenant-provisioning:8000
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8001","http://localhost:8002","http://localhost:8003"]'
     depends_on:
       redis:
         condition: service_healthy
@@ -181,6 +273,8 @@ services:
       tenant-management:
         condition: service_healthy
       tenant-lifecycle:
+        condition: service_healthy
+      tenant-provisioning:
         condition: service_healthy
     networks:
       - backend
