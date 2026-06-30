@@ -1,5 +1,5 @@
 # NutraTenant — local development stack
-# Ports:  8000 = APIGateway  |  8001 = TenantManagement  |  8002 = TenantLifecycle  |  8003 = TenantProvisioning
+# Ports:  8000 = APIGateway  |  8001 = TenantManagement  |  8002 = TenantLifecycle  |  8003 = TenantProvisioning  |  8004 = TenantIsolation
 #         5433 = Postgres     |  6379 = Redis             |  5672/15672 = RabbitMQ
 
 networks:
@@ -300,6 +300,40 @@ services:
     restart: unless-stopped
     profiles:
       - docs
+
+  tenant-isolation:
+    container_name: backendservicekit-tenantisolation
+    build:
+      context: ./services/TenantIsolation
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8000"
+    env_file:
+      - ./services/TenantIsolation/.env.example
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_isolation
+      DATABASE_SSL: "false"
+      REDIS_URL: redis://redis:6379/5
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      TENANT_MANAGEMENT_BASE_URL: http://tenant-management:8000
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8001","http://localhost:8002","http://localhost:8003"]'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
 
   api-gateway-worker:
     container_name: backendservicekit-apigateway-worker
