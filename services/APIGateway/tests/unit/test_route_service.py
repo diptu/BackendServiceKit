@@ -15,7 +15,7 @@ def svc() -> RouteService:
 
 
 def test_routes_are_registered(svc: RouteService) -> None:
-    assert len(svc.routes) == 4
+    assert len(svc.routes) == 5
 
 
 def test_resolve_tenants_root(svc: RouteService) -> None:
@@ -75,6 +75,22 @@ def test_resolve_by_upstream_provisioning_returns_one_route(svc: RouteService) -
     routes = svc.resolve_by_upstream(UpstreamService.TENANT_PROVISIONING)
     assert len(routes) == 1
     assert routes[0].prefix == "/api/v1/provisioning"
+
+
+def test_resolve_observability_root(svc: RouteService) -> None:
+    route = svc.resolve("/api/v1/observability")
+    assert route.upstream == UpstreamService.OBSERVABILITY
+
+
+def test_observability_route_is_never_cacheable(svc: RouteService) -> None:
+    route = svc.resolve("/api/v1/observability/dashboard")
+    assert route.cacheable_methods == frozenset()
+
+
+def test_resolve_by_upstream_observability_returns_one_route(svc: RouteService) -> None:
+    routes = svc.resolve_by_upstream(UpstreamService.OBSERVABILITY)
+    assert len(routes) == 1
+    assert routes[0].prefix == "/api/v1/observability"
 
 
 def test_upstream_url_builds_correctly(svc: RouteService) -> None:

@@ -356,6 +356,7 @@ services:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       TENENT_BASE_URL: http://tenent:8000
       TENANT_PROVISIONING_BASE_URL: http://tenant-provisioning:8000
+      OBSERVABILITY_BASE_URL: http://observability:8000
       KONG_ADMIN_URL: http://kong:8001
       CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8005","http://localhost:8003"]'
       OTEL_SERVICE_NAME: nutratenant-api-gateway
@@ -372,6 +373,48 @@ services:
         condition: service_healthy
       tenant-provisioning:
         condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  observability:
+    container_name: backendservicekit-observability
+    build:
+      context: ./services/Observability
+      dockerfile: Dockerfile
+    ports:
+      - "8012:8000"
+    env_file:
+      - ./services/Observability/.env.example
+    environment:
+      ENVIRONMENT: development
+      # Composes six sibling services' already-public REST APIs — see
+      # services/Observability/TODO.md Decision #1/#11. It holds no
+      # credentials of its own and has no hard dependency of its own to
+      # block startup on, so intentionally no depends_on here — same
+      # reasoning as every other observability-adjacent service. These six
+      # in-network hostnames match the naming convention each sibling
+      # service uses once it exists; see TODO.md Phase 0 — none of them
+      # have a docker-compose block in this file yet, so this is
+      # forward-compatible wiring, not a live dependency today.
+      LOGGING_BASE_URL: http://logging:8000
+      DISTRIBUTED_TRACING_BASE_URL: http://distributed-tracing:8000
+      METRICS_COLLECTION_BASE_URL: http://metrics-collection:8000
+      MONITORING_BASE_URL: http://monitoring:8000
+      ALERTING_BASE_URL: http://alerting:8000
+      HEALTH_CHECK_BASE_URL: http://healthcheck:8000
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8080"]'
+      OTEL_SERVICE_NAME: nutratenant-observability
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      ENABLE_TRACING: "true"
+      ENABLE_METRICS: "true"
     networks:
       - backend
     restart: unless-stopped
