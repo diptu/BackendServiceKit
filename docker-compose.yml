@@ -357,6 +357,7 @@ services:
       TENENT_BASE_URL: http://tenent:8000
       TENANT_PROVISIONING_BASE_URL: http://tenant-provisioning:8000
       LOGGING_BASE_URL: http://logging:8000
+      DISTRIBUTED_TRACING_BASE_URL: http://distributed-tracing:8000
       KONG_ADMIN_URL: http://kong:8001
       CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8005","http://localhost:8003"]'
       OTEL_SERVICE_NAME: nutratenant-api-gateway
@@ -476,6 +477,38 @@ services:
       LOKI_BASE_URL: http://loki:3100
       CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8080"]'
       OTEL_SERVICE_NAME: nutratenant-logging
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      ENABLE_TRACING: "true"
+      ENABLE_METRICS: "true"
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  distributed-tracing:
+    container_name: backendservicekit-distributedtracing
+    build:
+      context: ./services/DistributedTracing
+      dockerfile: Dockerfile
+    ports:
+      - "8007:8000"
+    env_file:
+      - ./services/DistributedTracing/.env.example
+    environment:
+      ENVIRONMENT: development
+      # Tempo lives behind the `observability` profile — intentionally no
+      # depends_on here, same reasoning as the `logging` service above:
+      # /ready reports 503 if Tempo isn't reachable rather than blocking the
+      # whole stack on an optional dependency.
+      TEMPO_BASE_URL: http://tempo:3200
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8080"]'
+      OTEL_SERVICE_NAME: nutratenant-distributed-tracing
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       ENABLE_TRACING: "true"

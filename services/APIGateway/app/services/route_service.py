@@ -64,6 +64,14 @@ def _build_registry() -> list[Route]:
             cacheable_methods=frozenset(),
             cache_ttl=0,
         ),
+        Route(
+            # Traces are never cacheable — same reasoning as /api/v1/logs above.
+            prefix="/api/v1/traces",
+            upstream=UpstreamService.DISTRIBUTED_TRACING,
+            base_url=settings.distributed_tracing_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
     ]
 
 
