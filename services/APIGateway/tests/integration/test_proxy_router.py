@@ -261,7 +261,7 @@ async def test_gateway_routes_endpoint_not_proxied(proxy_client: AsyncClient) ->
     assert resp.status_code == 200
     body = resp.json()
     assert "routes" in body
-    assert body["total"] == 4
+    assert body["total"] == 5
 
 
 async def test_health_endpoint_not_proxied(proxy_client: AsyncClient) -> None:

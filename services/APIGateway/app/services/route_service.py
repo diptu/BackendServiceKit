@@ -54,6 +54,16 @@ def _build_registry() -> list[Route]:
             base_url=settings.tenant_provisioning_base_url,
             cache_ttl=settings.redis_provisioning_cache_ttl,
         ),
+        Route(
+            # Logs are never cacheable — search results change too fast for a
+            # response cache to be useful, and caching search-by-tenant results
+            # keyed only on path+query would leak stale entries across writes.
+            prefix="/api/v1/logs",
+            upstream=UpstreamService.LOGGING,
+            base_url=settings.logging_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
     ]
 
 

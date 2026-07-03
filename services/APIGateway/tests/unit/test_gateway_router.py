@@ -175,8 +175,8 @@ async def test_list_routes_returns_200(client: AsyncClient) -> None:
 
 async def test_list_routes_total_matches_registry(client: AsyncClient) -> None:
     body = (await client.get("/api/v1/gateway/routes")).json()
-    assert body["total"] == 4
-    assert len(body["routes"]) == 4
+    assert body["total"] == 5
+    assert len(body["routes"]) == 5
 
 
 async def test_list_routes_includes_expected_prefixes(client: AsyncClient) -> None:
@@ -187,6 +187,7 @@ async def test_list_routes_includes_expected_prefixes(client: AsyncClient) -> No
         "/api/v1/lifecycle",
         "/api/v1/isolation",
         "/api/v1/provisioning",
+        "/api/v1/logs",
     }
 
 
@@ -201,13 +202,21 @@ async def test_list_routes_cacheable_methods_is_list(client: AsyncClient) -> Non
     body = (await client.get("/api/v1/gateway/routes")).json()
     for route in body["routes"]:
         assert isinstance(route["cacheable_methods"], list)
-        assert len(route["cacheable_methods"]) > 0
+        # /api/v1/logs is deliberately non-cacheable — search results change too
+        # fast for a response cache to help.
+        if route["prefix"] == "/api/v1/logs":
+            assert route["cacheable_methods"] == []
+        else:
+            assert len(route["cacheable_methods"]) > 0
 
 
 async def test_list_routes_cache_ttl_is_positive(client: AsyncClient) -> None:
     body = (await client.get("/api/v1/gateway/routes")).json()
     for route in body["routes"]:
-        assert route["cache_ttl_seconds"] > 0
+        if route["prefix"] == "/api/v1/logs":
+            assert route["cache_ttl_seconds"] == 0
+        else:
+            assert route["cache_ttl_seconds"] > 0
 
 
 # ---------------------------------------------------------------------------
@@ -259,11 +268,11 @@ async def test_gateway_status_upstreams_unreachable_when_no_services(
 
 
 async def test_gateway_status_probes_unique_upstreams_only(client: AsyncClient) -> None:
-    """Routes sharing an upstream are de-duped — only 2 unique upstreams probed."""
+    """Routes sharing an upstream are de-duped — only 3 unique upstreams probed."""
     body = (await client.get("/api/v1/gateway/status")).json()
     names = [u["name"] for u in body["upstreams"]]
     assert len(names) == len(set(names)), "upstream names must be unique"
-    assert len(names) == 2  # tenent + tenant_provisioning
+    assert len(names) == 3  # tenent + tenant_provisioning + logging
 
 
 async def test_gateway_status_upstreams_have_name_and_base_url(client: AsyncClient) -> None:
@@ -411,7 +420,7 @@ async def test_kong_sync_syncs_all_routes_when_kong_available(
     kong_client: AsyncClient,
 ) -> None:
     body = (await kong_client.post("/api/v1/gateway/kong/sync")).json()
-    assert len(body["synced"]) == 4
+    assert len(body["synced"]) == 5
     assert len(body["failed"]) == 0
 
 
@@ -421,5 +430,5 @@ async def test_kong_sync_marks_all_failed_when_kong_unreachable(
     resp = await client.post("/api/v1/gateway/kong/sync")
     assert resp.status_code == 200
     body = resp.json()
-    assert len(body["failed"]) == 4
+    assert len(body["failed"]) == 5
     assert len(body["synced"]) == 0

@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     # Upstream services
     tenent_base_url: str = "http://localhost:8005"
     tenant_provisioning_base_url: str = "http://localhost:8003"
+    logging_base_url: str = "http://localhost:8006"
     redis_tenent_cache_ttl: int = 300        # 5 min: tenant + lifecycle GET responses
     redis_isolation_cache_ttl: int = 60      # 1 min: isolation decision responses
     redis_provisioning_cache_ttl: int = 30

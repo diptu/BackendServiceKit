@@ -15,7 +15,7 @@ def svc() -> RouteService:
 
 
 def test_routes_are_registered(svc: RouteService) -> None:
-    assert len(svc.routes) == 4
+    assert len(svc.routes) == 5
 
 
 def test_resolve_tenants_root(svc: RouteService) -> None:
@@ -58,6 +58,16 @@ def test_resolve_provisioning_root(svc: RouteService) -> None:
     assert route.upstream == UpstreamService.TENANT_PROVISIONING
 
 
+def test_resolve_logs_root(svc: RouteService) -> None:
+    route = svc.resolve("/api/v1/logs")
+    assert route.upstream == UpstreamService.LOGGING
+
+
+def test_logs_route_is_never_cacheable(svc: RouteService) -> None:
+    route = svc.resolve("/api/v1/logs/search")
+    assert route.cacheable_methods == frozenset()
+
+
 def test_resolve_unknown_path_raises(svc: RouteService) -> None:
     with pytest.raises(RouteNotFoundError) as exc_info:
         svc.resolve("/api/v1/unknown-service/foo")
@@ -75,6 +85,12 @@ def test_resolve_by_upstream_provisioning_returns_one_route(svc: RouteService) -
     routes = svc.resolve_by_upstream(UpstreamService.TENANT_PROVISIONING)
     assert len(routes) == 1
     assert routes[0].prefix == "/api/v1/provisioning"
+
+
+def test_resolve_by_upstream_logging_returns_one_route(svc: RouteService) -> None:
+    routes = svc.resolve_by_upstream(UpstreamService.LOGGING)
+    assert len(routes) == 1
+    assert routes[0].prefix == "/api/v1/logs"
 
 
 def test_upstream_url_builds_correctly(svc: RouteService) -> None:
