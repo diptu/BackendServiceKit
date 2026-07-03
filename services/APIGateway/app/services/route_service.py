@@ -72,6 +72,14 @@ def _build_registry() -> list[Route]:
             cacheable_methods=frozenset(),
             cache_ttl=0,
         ),
+        Route(
+            # Metrics are never cacheable — same reasoning as /api/v1/logs above.
+            prefix="/api/v1/metrics",
+            upstream=UpstreamService.METRICS_COLLECTION,
+            base_url=settings.metrics_collection_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
     ]
 
 

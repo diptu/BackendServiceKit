@@ -1,29 +1,29 @@
 # Recording rules — pre-compute expensive queries for dashboard performance
+#
+# The `nutratenant.http.rate5m` group that used to live here has been
+# removed, not just renamed. It queried `nutratenant_http_requests_total` /
+# `nutratenant_http_request_duration_seconds_bucket`, which assumed the
+# OTel Metrics SDK pipeline in shared/observability/metrics/* was wired into
+# Tenent/APIGateway and exporting through the OTel Collector's `nutratenant`-
+# namespaced Prometheus exporter. It isn't (verified: zero references to
+# that module anywhere in either service — see
+# services/MetricsCollection/TODO.md Decision #1) — and no other code path
+# emits an `http_requests_total`-shaped metric under any name today either.
+# Rather than repoint these at a metric that doesn't exist under any name,
+# they're dropped until a real HTTP RED-metrics source exists. Don't
+# re-add them without first confirming the backing metric is actually
+# being scraped.
 
 groups:
-  - name: nutratenant.http.rate5m
-    interval: 30s
-    rules:
-      - record: job:http_requests_total:rate5m
-        expr: sum(rate(nutratenant_http_requests_total[5m])) by (job, method, path, status_code)
-
-      - record: job:http_request_duration_seconds:p95_5m
-        expr: histogram_quantile(0.95, sum(rate(nutratenant_http_request_duration_seconds_bucket[5m])) by (job, le))
-
-      - record: job:http_request_duration_seconds:p99_5m
-        expr: histogram_quantile(0.99, sum(rate(nutratenant_http_request_duration_seconds_bucket[5m])) by (job, le))
-
-      - record: job:http_error_rate5m
-        expr: |
-          sum(rate(nutratenant_http_requests_total{status_code=~"5.."}[5m])) by (job)
-          /
-          sum(rate(nutratenant_http_requests_total[5m])) by (job)
-
   - name: nutratenant.isolation
     interval: 30s
     rules:
+      # Tenent's app/core/metrics.py exports these under their real,
+      # unprefixed names (no "nutratenant_" prefix — that only applies to
+      # the unused OTel Collector pipeline, see Decision #1), scraped
+      # directly via prometheus.yml's `tenent` job.
       - record: job:isolation_decisions_total:rate5m
-        expr: sum(rate(nutratenant_isolation_decisions_total[5m])) by (decision)
+        expr: sum(rate(isolation_decisions_total{job="tenent"}[5m])) by (decision)
 
       - record: job:isolation_violations_total:rate5m
-        expr: sum(rate(nutratenant_isolation_violations_total[5m]))
+        expr: sum(rate(isolation_violations_total{job="tenent"}[5m]))

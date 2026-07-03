@@ -358,6 +358,7 @@ services:
       TENANT_PROVISIONING_BASE_URL: http://tenant-provisioning:8000
       LOGGING_BASE_URL: http://logging:8000
       DISTRIBUTED_TRACING_BASE_URL: http://distributed-tracing:8000
+      METRICS_COLLECTION_BASE_URL: http://metrics-collection:8000
       KONG_ADMIN_URL: http://kong:8001
       CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8005","http://localhost:8003"]'
       OTEL_SERVICE_NAME: nutratenant-api-gateway
@@ -523,6 +524,40 @@ services:
       start_period: 15s
       retries: 3
 
+  metrics-collection:
+    container_name: backendservicekit-metricscollection
+    build:
+      context: ./services/MetricsCollection
+      dockerfile: Dockerfile
+    ports:
+      - "8008:8000"
+    env_file:
+      - ./services/MetricsCollection/.env.example
+    environment:
+      ENVIRONMENT: development
+      # Prometheus/Pushgateway live behind the `observability` profile —
+      # intentionally no depends_on here, same reasoning as `logging` and
+      # `distributed-tracing` above: /ready reports 503 if Prometheus isn't
+      # reachable rather than blocking the whole stack on an optional
+      # dependency.
+      PROMETHEUS_BASE_URL: http://prometheus:9090
+      PUSHGATEWAY_BASE_URL: http://pushgateway:9091
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8080"]'
+      OTEL_SERVICE_NAME: nutratenant-metrics-collection
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      ENABLE_TRACING: "true"
+      ENABLE_METRICS: "true"
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
   # ──────────────────────────────────────────────────────────────────
   # OBSERVABILITY STACK  (docker compose --profile observability up)
   # ──────────────────────────────────────────────────────────────────
@@ -551,6 +586,17 @@ services:
       - ./services/Alerting/prometheus/alerts:/etc/prometheus/alerts:ro
     ports:
       - "9090:9090"
+    networks:
+      - backend
+    restart: unless-stopped
+    profiles:
+      - observability
+
+  pushgateway:
+    container_name: backendservicekit-pushgateway
+    image: prom/pushgateway
+    # No host port mapping — internal-only, talked to via metrics-collection
+    # and scraped by prometheus, both on the backend network.
     networks:
       - backend
     restart: unless-stopped

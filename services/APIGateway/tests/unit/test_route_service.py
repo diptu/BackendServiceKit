@@ -15,7 +15,7 @@ def svc() -> RouteService:
 
 
 def test_routes_are_registered(svc: RouteService) -> None:
-    assert len(svc.routes) == 6
+    assert len(svc.routes) == 7
 
 
 def test_resolve_tenants_root(svc: RouteService) -> None:
@@ -107,6 +107,22 @@ def test_resolve_by_upstream_distributed_tracing_returns_one_route(svc: RouteSer
     routes = svc.resolve_by_upstream(UpstreamService.DISTRIBUTED_TRACING)
     assert len(routes) == 1
     assert routes[0].prefix == "/api/v1/traces"
+
+
+def test_resolve_metrics_root(svc: RouteService) -> None:
+    route = svc.resolve("/api/v1/metrics")
+    assert route.upstream == UpstreamService.METRICS_COLLECTION
+
+
+def test_metrics_route_is_never_cacheable(svc: RouteService) -> None:
+    route = svc.resolve("/api/v1/metrics/query")
+    assert route.cacheable_methods == frozenset()
+
+
+def test_resolve_by_upstream_metrics_collection_returns_one_route(svc: RouteService) -> None:
+    routes = svc.resolve_by_upstream(UpstreamService.METRICS_COLLECTION)
+    assert len(routes) == 1
+    assert routes[0].prefix == "/api/v1/metrics"
 
 
 def test_upstream_url_builds_correctly(svc: RouteService) -> None:

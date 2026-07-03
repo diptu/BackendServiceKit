@@ -1,5 +1,6 @@
 {
   "title": "Redis Metrics",
+  "description": "Panels 1-3 (Redis Command Rate, Cache Hit Ratio, Redis p95 Latency) have no real backing data today — cache_operation_duration_seconds / cache_hits_total / cache_misses_total are shared/observability/metrics/{counters,histograms}.py OTel constructors never called anywhere in Tenent/APIGateway (see services/MetricsCollection/TODO.md Decision #1). Panel 4 (Isolation Decisions/s) IS real — it's Tenent's own isolation_decisions_total, scraped directly under job=\"tenent\" — it's just misplaced in a dashboard titled 'Redis Metrics' (apparent copy-paste residue); left in place rather than relocated to avoid scope creep on a cleanup pass.",
   "uid": "redis-metrics",
   "schemaVersion": 38,
   "version": 1,
@@ -49,13 +50,13 @@
     },
     {
       "id": 4,
-      "title": "Isolation Decisions/s",
+      "title": "Isolation Decisions/s (real — job=tenent, misplaced here)",
       "type": "timeseries",
       "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
       "targets": [
         {
           "datasource": {"type": "prometheus"},
-          "expr": "sum(rate(isolation_decisions_total[5m])) by (decision)",
+          "expr": "sum(rate(isolation_decisions_total{job=\"tenent\"}[5m])) by (decision)",
           "legendFormat": "{{decision}}"
         }
       ]

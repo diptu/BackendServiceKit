@@ -1,5 +1,6 @@
 {
   "title": "API Latency",
+  "description": "No panel here has real backing data today, for the same reason as request_metrics.json: http_request_duration_seconds_bucket is a shared/observability/metrics/histograms.py OTel constructor that is never called anywhere in Tenent/APIGateway. See services/MetricsCollection/TODO.md Decision #1 — out of scope to wire in here.",
   "uid": "api-latency",
   "schemaVersion": 38,
   "version": 1,

@@ -8,9 +8,16 @@ global:
     platform: nutratenant
     environment: development
 
-# Alert rules — loaded from mounted rules directory
+# Alert rules + recording rules — loaded from mounted directories.
+# `rules/*.yml` was missing here entirely until this fix — recording.yml
+# was mounted into the container (docker-compose.yml's `prometheus` service
+# volumes) but never referenced by rule_files, so it was never loaded or
+# evaluated at all, independent of the metric-name bugs fixed in that file
+# itself. Verified by loading this config into a real Prometheus container
+# and checking `/api/v1/rules` shows both recording rules present.
 rule_files:
   - /etc/prometheus/alerts/*.yml
+  - /etc/prometheus/rules/*.yml
 
 # Alertmanager integration
 alerting:
@@ -63,3 +70,36 @@ scrape_configs:
       - targets:
           - tenent:8000
     metrics_path: /metrics
+
+  # Logging service direct scrape — was previously exposing /metrics with
+  # nothing scraping it (found while building services/MetricsCollection).
+  - job_name: logging
+    static_configs:
+      - targets:
+          - logging:8000
+    metrics_path: /metrics
+
+  # Distributed Tracing service direct scrape — same gap as logging above.
+  - job_name: distributed-tracing
+    static_configs:
+      - targets:
+          - distributed-tracing:8000
+    metrics_path: /metrics
+
+  # Metrics Collection service's own self-instrumentation (separate from the
+  # domain API this service exposes at /api/v1/metrics/*).
+  - job_name: metrics-collection
+    static_configs:
+      - targets:
+          - metrics-collection:8000
+    metrics_path: /metrics
+
+  # Pushgateway — honor_labels is required so Pushgateway's own job/instance
+  # grouping-key labels on pushed series aren't overwritten by Prometheus's
+  # default relabeling (which would otherwise stamp job="pushgateway" over
+  # whatever job the pusher actually specified).
+  - job_name: pushgateway
+    honor_labels: true
+    static_configs:
+      - targets:
+          - pushgateway:9091

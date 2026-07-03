@@ -1,5 +1,6 @@
 {
   "title": "Request Metrics",
+  "description": "No panel here has real backing data today. Every query assumes shared/observability/metrics/* (the OTel Metrics SDK constructors in counters.py/histograms.py) is wired into Tenent/APIGateway and exporting http_requests_total / http_request_duration_seconds_bucket. It isn't (verified: zero references to that module anywhere in either service's code) and no other code path emits an equivalently-named metric either. Wiring it in is out of scope for services/MetricsCollection (see its TODO.md Decision #1) — that would be an edit to Tenent/APIGateway's own code.",
   "uid": "request-metrics",
   "schemaVersion": 38,
   "version": 1,

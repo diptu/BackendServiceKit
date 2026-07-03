@@ -12,6 +12,7 @@ class UpstreamService(StrEnum):
     TENANT_PROVISIONING = "tenant_provisioning"
     LOGGING = "logging"
     DISTRIBUTED_TRACING = "distributed_tracing"
+    METRICS_COLLECTION = "metrics_collection"
 
 
 class CacheResult(StrEnum):

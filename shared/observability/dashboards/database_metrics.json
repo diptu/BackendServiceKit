@@ -1,5 +1,6 @@
 {
   "title": "Database Metrics",
+  "description": "No panel here has real backing data today, for the same reason as request_metrics.json: db_query_duration_seconds / db_client_operation_duration_seconds are shared/observability/metrics/histograms.py OTel constructors that are never called anywhere in Tenent/APIGateway. See services/MetricsCollection/TODO.md Decision #1 — out of scope to wire in here.",
   "uid": "database-metrics",
   "schemaVersion": 38,
   "version": 1,

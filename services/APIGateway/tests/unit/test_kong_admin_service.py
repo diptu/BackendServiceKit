@@ -175,9 +175,9 @@ async def test_list_plugins_returns_list() -> None:
 async def test_sync_routes_success() -> None:
     svc = _make_service()
     result = await svc.sync_routes()
-    # 6 routes: /api/v1/tenants, /api/v1/lifecycle, /api/v1/isolation,
-    # /api/v1/provisioning, /api/v1/logs, /api/v1/traces
-    assert len(result.synced) == 6
+    # 7 routes: /api/v1/tenants, /api/v1/lifecycle, /api/v1/isolation,
+    # /api/v1/provisioning, /api/v1/logs, /api/v1/traces, /api/v1/metrics
+    assert len(result.synced) == 7
     assert len(result.failed) == 0
     assert len(result.skipped) == 0
     assert set(result.synced) == {
@@ -187,6 +187,7 @@ async def test_sync_routes_success() -> None:
         "/api/v1/provisioning",
         "/api/v1/logs",
         "/api/v1/traces",
+        "/api/v1/metrics",
     }
 
 
@@ -194,19 +195,20 @@ async def test_sync_routes_service_failure_marks_failed() -> None:
     svc = _make_service(_service_failure_handler)
     result = await svc.sync_routes()
     # The three tenent routes fail at service upsert; provisioning, logging,
-    # and distributed-tracing succeed
+    # distributed-tracing, and metrics-collection succeed
     assert "/api/v1/tenants" in result.failed
     assert "/api/v1/lifecycle" in result.failed
     assert "/api/v1/isolation" in result.failed
     assert "/api/v1/provisioning" in result.synced
     assert "/api/v1/logs" in result.synced
     assert "/api/v1/traces" in result.synced
+    assert "/api/v1/metrics" in result.synced
 
 
 async def test_sync_routes_admin_unreachable_marks_failed() -> None:
     svc = _make_service(_unreachable_handler)
     result = await svc.sync_routes()
-    assert len(result.failed) == 6
+    assert len(result.failed) == 7
     assert len(result.synced) == 0
 
 
@@ -214,7 +216,7 @@ async def test_sync_routes_total_matches() -> None:
     svc = _make_service()
     result = await svc.sync_routes()
     assert result.total == len(result.synced) + len(result.skipped) + len(result.failed)
-    assert result.total == 6
+    assert result.total == 7
 
 
 async def test_sync_result_is_kong_sync_result_instance() -> None:
