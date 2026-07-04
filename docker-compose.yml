@@ -356,7 +356,7 @@ services:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       TENENT_BASE_URL: http://tenent:8000
       TENANT_PROVISIONING_BASE_URL: http://tenant-provisioning:8000
-      OBSERVABILITY_BASE_URL: http://observability:8000
+      OBSERVABILITY_MANAGEMENT_BASE_URL: http://observability-management:8000
       KONG_ADMIN_URL: http://kong:8001
       CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8005","http://localhost:8003"]'
       OTEL_SERVICE_NAME: nutratenant-api-gateway
@@ -383,34 +383,41 @@ services:
       start_period: 15s
       retries: 3
 
-  observability:
-    container_name: backendservicekit-observability
+  observability-management:
+    container_name: backendservicekit-observability-management
     build:
-      context: ./services/Observability
+      context: ./services/ObservilityManagement
       dockerfile: Dockerfile
     ports:
-      - "8012:8000"
+      - "8020:8000"
     env_file:
-      - ./services/Observability/.env.example
+      - ./services/ObservilityManagement/.env.example
+    volumes:
+      # Read-write counterpart of Prometheus's own read-only mount of the
+      # same host directory (see the `prometheus` service's volumes below
+      # and services/ObservilityManagement/TODO.md's Alerting-domain
+      # decisions) — this is where the Alerting domain's rule CRUD writes.
+      - ./services/Alerting/prometheus/dynamic-alerts:/data/rules
     environment:
       ENVIRONMENT: development
-      # Composes six sibling services' already-public REST APIs — see
-      # services/Observability/TODO.md Decision #1/#11. It holds no
-      # credentials of its own and has no hard dependency of its own to
-      # block startup on, so intentionally no depends_on here — same
-      # reasoning as every other observability-adjacent service. These six
-      # in-network hostnames match the naming convention each sibling
-      # service uses once it exists; see TODO.md Phase 0 — none of them
-      # have a docker-compose block in this file yet, so this is
-      # forward-compatible wiring, not a live dependency today.
-      LOGGING_BASE_URL: http://logging:8000
-      DISTRIBUTED_TRACING_BASE_URL: http://distributed-tracing:8000
-      METRICS_COLLECTION_BASE_URL: http://metrics-collection:8000
-      MONITORING_BASE_URL: http://monitoring:8000
-      ALERTING_BASE_URL: http://alerting:8000
-      HEALTH_CHECK_BASE_URL: http://healthcheck:8000
+      # This one container replaces what would have been seven separate
+      # services (Logging, DistributedTracing, MetricsCollection,
+      # Monitoring, Alerting, Observability, HealthCheck) — see
+      # services/ObservilityManagement/TODO.md Decision #1. It talks to
+      # the tier-1 raw backends directly (Loki/Tempo/Prometheus/
+      # Pushgateway/Alertmanager) plus Tenent/APIGateway for the Health/
+      # Monitoring domains — no hard dependency of its own to block
+      # startup on, so intentionally no depends_on here.
+      LOKI_BASE_URL: http://loki:3100
+      TEMPO_BASE_URL: http://tempo:3200
+      PROMETHEUS_BASE_URL: http://prometheus:9090
+      PUSHGATEWAY_BASE_URL: http://pushgateway:9091
+      ALERTMANAGER_BASE_URL: http://alertmanager:9093
+      TENENT_BASE_URL: http://tenent:8000
+      API_GATEWAY_BASE_URL: http://api-gateway:8000
+      MANAGED_RULES_FILE_PATH: /data/rules/managed.yml
       CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8080"]'
-      OTEL_SERVICE_NAME: nutratenant-observability
+      OTEL_SERVICE_NAME: nutratenant-observability-management
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       ENABLE_TRACING: "true"
@@ -526,11 +533,28 @@ services:
       - ./services/MetricsCollection/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./services/MetricsCollection/prometheus/rules:/etc/prometheus/rules:ro
       - ./services/Alerting/prometheus/alerts:/etc/prometheus/alerts:ro
+      # Sibling of the alerts/ mount above, not a subdirectory of it — a
+      # nested mount inside an already-read-only parent mount doesn't work.
+      # This path is where ObservilityManagement's Alerting domain writes
+      # its exclusively-managed rule file, mounted here read-only since
+      # Prometheus should only ever read it.
+      - ./services/Alerting/prometheus/dynamic-alerts:/etc/prometheus/dynamic-alerts:ro
     ports:
       - "9090:9090"
     networks:
       - backend
     restart: unless-stopped
+    # --web.enable-lifecycle is required for the Alerting domain to call
+    # POST /-/reload after writing a managed rule file — off by default.
+    # Custom `command:` replaces the image's default CMD entirely, so the
+    # other three default args are listed explicitly too (confirmed via
+    # `docker inspect prom/prometheus:v2.53.0`).
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-lifecycle"
     profiles:
       - observability
 

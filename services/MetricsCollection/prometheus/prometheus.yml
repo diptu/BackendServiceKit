@@ -11,6 +11,9 @@ global:
 # Alert rules — loaded from mounted rules directory
 rule_files:
   - /etc/prometheus/alerts/*.yml
+  # ObservilityManagement's Alerting domain's exclusively-managed rules —
+  # a sibling mount of /etc/prometheus/alerts, not a subdirectory of it.
+  - /etc/prometheus/dynamic-alerts/*.yml
 
 # Alertmanager integration
 alerting:
@@ -64,11 +67,13 @@ scrape_configs:
           - tenent:8000
     metrics_path: /metrics
 
-  # Observability service's own self-instrumentation — added at the same
-  # time this service was built, not left unscraped for a while like
-  # earlier services in this project's history were.
-  - job_name: observability
+  # ObservilityManagement's own self-instrumentation — one job replaces
+  # what would have been seven separate scrape targets (Logging,
+  # DistributedTracing, MetricsCollection, Monitoring, Alerting,
+  # Observability, HealthCheck all merged into one container/one /metrics
+  # endpoint).
+  - job_name: observability-management
     static_configs:
       - targets:
-          - observability:8000
+          - observability-management:8000
     metrics_path: /metrics

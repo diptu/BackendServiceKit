@@ -15,7 +15,7 @@ def svc() -> RouteService:
 
 
 def test_routes_are_registered(svc: RouteService) -> None:
-    assert len(svc.routes) == 5
+    assert len(svc.routes) == 11
 
 
 def test_resolve_tenants_root(svc: RouteService) -> None:
@@ -79,7 +79,7 @@ def test_resolve_by_upstream_provisioning_returns_one_route(svc: RouteService) -
 
 def test_resolve_observability_root(svc: RouteService) -> None:
     route = svc.resolve("/api/v1/observability")
-    assert route.upstream == UpstreamService.OBSERVABILITY
+    assert route.upstream == UpstreamService.OBSERVABILITY_MANAGEMENT
 
 
 def test_observability_route_is_never_cacheable(svc: RouteService) -> None:
@@ -87,10 +87,42 @@ def test_observability_route_is_never_cacheable(svc: RouteService) -> None:
     assert route.cacheable_methods == frozenset()
 
 
-def test_resolve_by_upstream_observability_returns_one_route(svc: RouteService) -> None:
-    routes = svc.resolve_by_upstream(UpstreamService.OBSERVABILITY)
-    assert len(routes) == 1
-    assert routes[0].prefix == "/api/v1/observability"
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "/api/v1/logs",
+        "/api/v1/traces",
+        "/api/v1/metrics",
+        "/api/v1/monitoring",
+        "/api/v1/alerts",
+        "/api/v1/health",
+        "/api/v1/observability",
+    ],
+)
+def test_resolve_merged_service_prefixes(svc: RouteService, prefix: str) -> None:
+    route = svc.resolve(prefix)
+    assert route.upstream == UpstreamService.OBSERVABILITY_MANAGEMENT
+    assert route.cacheable_methods == frozenset()
+    assert route.cache_ttl == 0
+
+
+def test_resolve_by_upstream_observability_management_returns_seven_routes(
+    svc: RouteService,
+) -> None:
+    routes = svc.resolve_by_upstream(UpstreamService.OBSERVABILITY_MANAGEMENT)
+    assert len(routes) == 7
+    prefixes = {r.prefix for r in routes}
+    assert prefixes == {
+        "/api/v1/logs",
+        "/api/v1/traces",
+        "/api/v1/metrics",
+        "/api/v1/monitoring",
+        "/api/v1/alerts",
+        "/api/v1/health",
+        "/api/v1/observability",
+    }
+    # all seven point at the same one base_url — one merged backend
+    assert len({r.base_url for r in routes}) == 1
 
 
 def test_upstream_url_builds_correctly(svc: RouteService) -> None:

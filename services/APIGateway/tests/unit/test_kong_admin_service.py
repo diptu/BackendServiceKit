@@ -175,9 +175,10 @@ async def test_list_plugins_returns_list() -> None:
 async def test_sync_routes_success() -> None:
     svc = _make_service()
     result = await svc.sync_routes()
-    # 5 routes: /api/v1/tenants, /api/v1/lifecycle, /api/v1/isolation,
-    # /api/v1/provisioning, /api/v1/observability
-    assert len(result.synced) == 5
+    # 11 routes: /api/v1/tenants, /api/v1/lifecycle, /api/v1/isolation,
+    # /api/v1/provisioning, plus the merged ObservilityManagement service's
+    # seven prefixes (logs/traces/metrics/monitoring/alerts/health/observability)
+    assert len(result.synced) == 11
     assert len(result.failed) == 0
     assert len(result.skipped) == 0
     assert set(result.synced) == {
@@ -185,6 +186,12 @@ async def test_sync_routes_success() -> None:
         "/api/v1/lifecycle",
         "/api/v1/isolation",
         "/api/v1/provisioning",
+        "/api/v1/logs",
+        "/api/v1/traces",
+        "/api/v1/metrics",
+        "/api/v1/monitoring",
+        "/api/v1/alerts",
+        "/api/v1/health",
         "/api/v1/observability",
     }
 
@@ -192,19 +199,20 @@ async def test_sync_routes_success() -> None:
 async def test_sync_routes_service_failure_marks_failed() -> None:
     svc = _make_service(_service_failure_handler)
     result = await svc.sync_routes()
-    # The three tenent routes fail at service upsert; provisioning and
-    # observability succeed
+    # The three tenent routes fail at service upsert; provisioning and the
+    # merged service's seven routes succeed
     assert "/api/v1/tenants" in result.failed
     assert "/api/v1/lifecycle" in result.failed
     assert "/api/v1/isolation" in result.failed
     assert "/api/v1/provisioning" in result.synced
     assert "/api/v1/observability" in result.synced
+    assert "/api/v1/logs" in result.synced
 
 
 async def test_sync_routes_admin_unreachable_marks_failed() -> None:
     svc = _make_service(_unreachable_handler)
     result = await svc.sync_routes()
-    assert len(result.failed) == 5
+    assert len(result.failed) == 11
     assert len(result.synced) == 0
 
 
@@ -212,7 +220,7 @@ async def test_sync_routes_total_matches() -> None:
     svc = _make_service()
     result = await svc.sync_routes()
     assert result.total == len(result.synced) + len(result.skipped) + len(result.failed)
-    assert result.total == 5
+    assert result.total == 11
 
 
 async def test_sync_result_is_kong_sync_result_instance() -> None:

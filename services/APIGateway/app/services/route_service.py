@@ -54,13 +54,67 @@ def _build_registry() -> list[Route]:
             base_url=settings.tenant_provisioning_base_url,
             cache_ttl=settings.redis_provisioning_cache_ttl,
         ),
+        # Seven prefixes, one upstream — services/ObservilityManagement/
+        # merges what used to be seven separate deployables (Logging,
+        # DistributedTracing, MetricsCollection, Monitoring, Alerting,
+        # Observability, HealthCheck) into one container. See
+        # services/ObservilityManagement/TODO.md Decision #1/#6: the URL
+        # surface is preserved exactly, only the backend count changed
+        # from seven to one — gateway_status's dedup-by-upstream logic
+        # now correctly probes this one container's health once instead
+        # of seven redundant times.
+        Route(
+            prefix="/api/v1/logs",
+            upstream=UpstreamService.OBSERVABILITY_MANAGEMENT,
+            base_url=settings.observability_management_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            prefix="/api/v1/traces",
+            upstream=UpstreamService.OBSERVABILITY_MANAGEMENT,
+            base_url=settings.observability_management_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            prefix="/api/v1/metrics",
+            upstream=UpstreamService.OBSERVABILITY_MANAGEMENT,
+            base_url=settings.observability_management_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            prefix="/api/v1/monitoring",
+            upstream=UpstreamService.OBSERVABILITY_MANAGEMENT,
+            base_url=settings.observability_management_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            prefix="/api/v1/alerts",
+            upstream=UpstreamService.OBSERVABILITY_MANAGEMENT,
+            base_url=settings.observability_management_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            # Must be "/api/v1/health" exactly, matching
+            # ObservilityManagement's real mounted path — the gateway
+            # forwards the incoming path unmodified (Route.upstream_url),
+            # it does not rewrite prefixes.
+            prefix="/api/v1/health",
+            upstream=UpstreamService.OBSERVABILITY_MANAGEMENT,
+            base_url=settings.observability_management_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
         Route(
             # Never cacheable — investigation/correlation data is
-            # meaningless if stale (see services/Observability/TODO.md
-            # Decision #12).
+            # meaningless if stale.
             prefix="/api/v1/observability",
-            upstream=UpstreamService.OBSERVABILITY,
-            base_url=settings.observability_base_url,
+            upstream=UpstreamService.OBSERVABILITY_MANAGEMENT,
+            base_url=settings.observability_management_base_url,
             cacheable_methods=frozenset(),
             cache_ttl=0,
         ),

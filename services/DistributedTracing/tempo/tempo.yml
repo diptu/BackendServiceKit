@@ -55,7 +55,13 @@ metrics_generator:
     remote_write:
       - url: http://prometheus:9090/api/v1/write
         send_exemplars: true
-  processors: [service-graphs, span-metrics]
+  # `processors` is not a valid top-level field on metrics_generator's own
+  # config in this Tempo version ("field processors not found in type
+  # generator.Config") — confirmed by actually booting a real
+  # grafana/tempo:2.5.0 container against this file, which refused to
+  # start at all until this duplicate, invalid key was removed. The real,
+  # correct way to configure this is per-tenant via `overrides.defaults`
+  # below, which was already present and correct.
 
 overrides:
   defaults:

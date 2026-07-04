@@ -12,13 +12,21 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Maps FastAPI route prefixes to the Kong service they belong to.
+# Maps FastAPI route prefixes to the Kong service they belong to. Seven
+# prefixes below share one Kong service name — they're all proxied to the
+# same ObservilityManagement container (see route_service.py's registry).
 KONG_ROUTE_PREFIX_MAP: dict[str, str] = {
     "/api/v1/tenants": "nutratenant-tenent",
     "/api/v1/lifecycle": "nutratenant-tenent",
     "/api/v1/isolation": "nutratenant-tenent",
     "/api/v1/provisioning": "nutratenant-tenant-provisioning",
-    "/api/v1/observability": "nutratenant-observability",
+    "/api/v1/logs": "nutratenant-observability-management",
+    "/api/v1/traces": "nutratenant-observability-management",
+    "/api/v1/metrics": "nutratenant-observability-management",
+    "/api/v1/monitoring": "nutratenant-observability-management",
+    "/api/v1/alerts": "nutratenant-observability-management",
+    "/api/v1/health": "nutratenant-observability-management",
+    "/api/v1/observability": "nutratenant-observability-management",
     "/api/v1/gateway": "nutratenant-api-gateway",
 }
 

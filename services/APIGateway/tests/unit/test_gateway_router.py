@@ -173,10 +173,21 @@ async def test_list_routes_returns_200(client: AsyncClient) -> None:
     assert resp.status_code == 200
 
 
+_MERGED_SERVICE_PREFIXES = {
+    "/api/v1/logs",
+    "/api/v1/traces",
+    "/api/v1/metrics",
+    "/api/v1/monitoring",
+    "/api/v1/alerts",
+    "/api/v1/health",
+    "/api/v1/observability",
+}
+
+
 async def test_list_routes_total_matches_registry(client: AsyncClient) -> None:
     body = (await client.get("/api/v1/gateway/routes")).json()
-    assert body["total"] == 5
-    assert len(body["routes"]) == 5
+    assert body["total"] == 11
+    assert len(body["routes"]) == 11
 
 
 async def test_list_routes_includes_expected_prefixes(client: AsyncClient) -> None:
@@ -187,7 +198,7 @@ async def test_list_routes_includes_expected_prefixes(client: AsyncClient) -> No
         "/api/v1/lifecycle",
         "/api/v1/isolation",
         "/api/v1/provisioning",
-        "/api/v1/observability",
+        *_MERGED_SERVICE_PREFIXES,
     }
 
 
@@ -202,9 +213,11 @@ async def test_list_routes_cacheable_methods_is_list(client: AsyncClient) -> Non
     body = (await client.get("/api/v1/gateway/routes")).json()
     for route in body["routes"]:
         assert isinstance(route["cacheable_methods"], list)
-        # /api/v1/observability is deliberately non-cacheable — investigation
-        # data is meaningless if stale.
-        if route["prefix"] == "/api/v1/observability":
+        # The merged ObservilityManagement service's seven prefixes are all
+        # deliberately non-cacheable — none of logs/traces/metrics/
+        # monitoring/alerts/health/observability data should ever be
+        # served stale.
+        if route["prefix"] in _MERGED_SERVICE_PREFIXES:
             assert route["cacheable_methods"] == []
         else:
             assert len(route["cacheable_methods"]) > 0
@@ -213,7 +226,7 @@ async def test_list_routes_cacheable_methods_is_list(client: AsyncClient) -> Non
 async def test_list_routes_cache_ttl_is_positive(client: AsyncClient) -> None:
     body = (await client.get("/api/v1/gateway/routes")).json()
     for route in body["routes"]:
-        if route["prefix"] == "/api/v1/observability":
+        if route["prefix"] in _MERGED_SERVICE_PREFIXES:
             assert route["cache_ttl_seconds"] == 0
         else:
             assert route["cache_ttl_seconds"] > 0
@@ -268,11 +281,14 @@ async def test_gateway_status_upstreams_unreachable_when_no_services(
 
 
 async def test_gateway_status_probes_unique_upstreams_only(client: AsyncClient) -> None:
-    """Routes sharing an upstream are de-duped — only 3 unique upstreams probed."""
+    """Routes sharing an upstream are de-duped — still only 3 unique
+    upstreams probed even though observability_management now covers seven
+    routes instead of one: dedup-by-upstream means this container's
+    /health is probed once, not seven redundant times."""
     body = (await client.get("/api/v1/gateway/status")).json()
     names = [u["name"] for u in body["upstreams"]]
     assert len(names) == len(set(names)), "upstream names must be unique"
-    assert len(names) == 3  # tenent + tenant_provisioning + observability
+    assert len(names) == 3  # tenent + tenant_provisioning + observability_management
 
 
 async def test_gateway_status_upstreams_have_name_and_base_url(client: AsyncClient) -> None:
@@ -420,7 +436,7 @@ async def test_kong_sync_syncs_all_routes_when_kong_available(
     kong_client: AsyncClient,
 ) -> None:
     body = (await kong_client.post("/api/v1/gateway/kong/sync")).json()
-    assert len(body["synced"]) == 5
+    assert len(body["synced"]) == 11
     assert len(body["failed"]) == 0
 
 
@@ -430,5 +446,5 @@ async def test_kong_sync_marks_all_failed_when_kong_unreachable(
     resp = await client.post("/api/v1/gateway/kong/sync")
     assert resp.status_code == 200
     body = resp.json()
-    assert len(body["failed"]) == 5
+    assert len(body["failed"]) == 11
     assert len(body["synced"]) == 0
