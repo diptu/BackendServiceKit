@@ -397,7 +397,7 @@ services:
       # same host directory (see the `prometheus` service's volumes below
       # and services/ObservilityManagement/TODO.md's Alerting-domain
       # decisions) — this is where the Alerting domain's rule CRUD writes.
-      - ./services/Alerting/prometheus/dynamic-alerts:/data/rules
+      - ./services/ObservilityManagement/prometheus/dynamic-alerts:/data/rules
     environment:
       ENVIRONMENT: development
       # This one container replaces what would have been seven separate
@@ -515,7 +515,7 @@ services:
     container_name: backendservicekit-otel-collector
     image: otel/opentelemetry-collector-contrib:0.105.0
     volumes:
-      - ./services/MetricsCollection/otelcol/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - ./services/ObservilityManagement/otelcol/config.yaml:/etc/otelcol-contrib/config.yaml:ro
     ports:
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP (used by Kong opentelemetry plugin)
@@ -530,15 +530,15 @@ services:
     container_name: backendservicekit-prometheus
     image: prom/prometheus:v2.53.0
     volumes:
-      - ./services/MetricsCollection/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./services/MetricsCollection/prometheus/rules:/etc/prometheus/rules:ro
-      - ./services/Alerting/prometheus/alerts:/etc/prometheus/alerts:ro
+      - ./services/ObservilityManagement/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./services/ObservilityManagement/prometheus/rules:/etc/prometheus/rules:ro
+      - ./services/ObservilityManagement/prometheus/alerts:/etc/prometheus/alerts:ro
       # Sibling of the alerts/ mount above, not a subdirectory of it — a
       # nested mount inside an already-read-only parent mount doesn't work.
       # This path is where ObservilityManagement's Alerting domain writes
       # its exclusively-managed rule file, mounted here read-only since
       # Prometheus should only ever read it.
-      - ./services/Alerting/prometheus/dynamic-alerts:/etc/prometheus/dynamic-alerts:ro
+      - ./services/ObservilityManagement/prometheus/dynamic-alerts:/etc/prometheus/dynamic-alerts:ro
     ports:
       - "9090:9090"
     networks:
@@ -563,7 +563,7 @@ services:
     image: grafana/tempo:2.5.0
     command: ["-config.file=/etc/tempo/tempo.yml"]
     volumes:
-      - ./services/DistributedTracing/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - ./services/ObservilityManagement/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
       - tempo_data:/var/tempo
     ports:
       - "3200:3200"   # HTTP query API
@@ -578,7 +578,7 @@ services:
     image: grafana/loki:3.1.0
     command: ["-config.file=/etc/loki/loki-config.yaml"]
     volumes:
-      - ./services/Logging/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - ./services/ObservilityManagement/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
       - loki_data:/loki
     ports:
       - "3100:3100"
@@ -592,7 +592,7 @@ services:
     container_name: backendservicekit-promtail
     image: grafana/promtail:3.1.0
     volumes:
-      - ./services/Logging/promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
+      - ./services/ObservilityManagement/promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/log:/var/log:ro
     command: ["-config.file=/etc/promtail/promtail-config.yaml"]
@@ -608,8 +608,8 @@ services:
     container_name: backendservicekit-grafana
     image: grafana/grafana:11.1.0
     volumes:
-      - ./services/Monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
-      - ./services/Monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./services/ObservilityManagement/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ./services/ObservilityManagement/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./shared/observability/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     ports:
@@ -631,7 +631,7 @@ services:
     container_name: backendservicekit-alertmanager
     image: prom/alertmanager:v0.27.0
     volumes:
-      - ./services/Alerting/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./services/ObservilityManagement/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
     ports:
       - "9093:9093"
     command:

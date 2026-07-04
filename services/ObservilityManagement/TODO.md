@@ -1,9 +1,16 @@
 # ObservilityManagement — 3-Phase Implementation Plan
 
 **Status: Fully implemented — all three phases done, verified against
-real containers, and the seven original services decommissioned.** See
-Implementation Notes at the bottom for what real-container verification
-found and exactly what "decommissioned" ended up meaning in practice.
+real containers, and the seven original services decommissioned.** All
+seven directories (`Monitoring`, `Logging`, `DistributedTracing`,
+`MetricsCollection`, `Alerting`, `Observability`, `HealthCheck`) are now
+gone from `services/` entirely, including the tier-1 backend config
+subdirectories the "Current state, read first" section below originally
+called out as preserved — see Phase 3.4 and Implementation Note #5 for how
+that went further than this plan originally called for, one service at a
+time, by explicit user request. See Implementation Notes at the bottom for
+what real-container verification found and exactly what "decommissioned"
+ended up meaning in practice.
 
 **What this is:** merging seven separate microservices — `Monitoring`,
 `Logging`, `DistributedTracing`, `MetricsCollection`, `Alerting`,
@@ -347,14 +354,82 @@ standalone first only to merge them a moment later.
       Implementation Notes) rather than either silently doing the
       originally-planned full deletion or silently doing a different,
       unapproved partial one.
-- [x] Deleted only the redundant application-layer remains — `README.md`,
-      each service's own (now-superseded) `TODO.md` where present, the
-      empty `app/`/`tests/` stub directories, and orphaned tool caches
-      (`.venv`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`) — from
-      `Monitoring/`, `Logging/`, `DistributedTracing/`,
-      `MetricsCollection/`, `Alerting/`, keeping each one's config
-      subdirectory in place. `Observability/` and `HealthCheck/` had no
-      config subdirectories to preserve and were deleted in full.
+- [x] `Observability/` and `HealthCheck/` had no config subdirectories to
+      preserve and were deleted in full from the start.
+- [x] **All five remaining services — `Monitoring/`, `Logging/`,
+      `DistributedTracing/`, `MetricsCollection/`, and finally
+      `Alerting/` — ended up deleted in full, by explicit, incremental,
+      per-service user request**, superseding this phase's original
+      "keep each config subdirectory in place" plan. Each was verified
+      domain-by-domain before removal (real implementation re-read against
+      the design decisions below, that domain's tests run in isolation,
+      then the full suite) rather than assuming the earlier bulk pass or
+      an earlier service's verification covered it adequately:
+    - **Monitoring**: 19/19 domain tests, 95/95 full suite.
+      `Monitoring/grafana/` relocated to
+      `services/ObservilityManagement/grafana/` (`git mv`, preserving
+      history) before deleting `services/Monitoring/`; both
+      `docker-compose.yml` volume-mount sources for the `grafana` service
+      repointed at the new path.
+    - **Logging**: 13/13 domain tests, 95/95 full suite.
+      `Logging/loki/` and `Logging/promtail/` relocated to
+      `services/ObservilityManagement/loki/` and `.../promtail/` (`git mv`)
+      before deleting `services/Logging/`; both `docker-compose.yml`
+      volume-mount sources for the `loki` and `promtail` services
+      repointed at the new paths.
+    - **DistributedTracing**: 20/20 domain tests (including the topology-
+      mining tests that depend on real Tempo span shape), 95/95 full suite.
+      `DistributedTracing/tempo/` relocated to
+      `services/ObservilityManagement/tempo/` (`git mv`, carrying forward
+      the already-fixed `metrics_generator.processors` bug from
+      Implementation Note #1) before deleting `DistributedTracing/`; the
+      `tempo` service's `docker-compose.yml` volume-mount source repointed
+      at the new path.
+    - **MetricsCollection**: 9/9 domain tests, 95/95 full suite.
+      `MetricsCollection/prometheus/` (main config + `rules/`) and
+      `MetricsCollection/otelcol/` relocated to
+      `services/ObservilityManagement/prometheus/` and `.../otelcol/`
+      (`git mv`, carrying forward the already-renamed `observability` →
+      `observability-management` scrape job and the removed stale scrape
+      target from Implementation Note #2) before deleting
+      `MetricsCollection/`; the `prometheus` service's two
+      `docker-compose.yml` mount sources (main config, `rules/`) and the
+      `otel-collector` service's one mount source repointed at the new
+      paths. Note: Prometheus's config surface is still split across two
+      directories after this move — `ObservilityManagement/prometheus/`
+      (main config + recording rules, from here) and `Alerting/prometheus/`
+      (alert rules + the dynamic-alerts write target, untouched by this
+      step) — both are legitimate, separately-owned mount sources for the
+      same container, not a leftover inconsistency; they'd only both land
+      under one path if `Alerting/` is later removed the same way.
+    - **Alerting**: 23/23 domain tests (alert query/action + rule-file
+      CRUD) plus the in-process-composition test proving one pushed alert
+      is visible through Alerting, Monitoring, and Observability with
+      zero network hops, 95/95 full suite. `Alerting/alertmanager/`
+      relocated to `services/ObservilityManagement/alertmanager/`;
+      `Alerting/prometheus/alerts/` and `Alerting/prometheus/dynamic-alerts/`
+      relocated into the `services/ObservilityManagement/prometheus/`
+      directory already created by the MetricsCollection move — resolving
+      that move's noted wrinkle, Prometheus's config now comes from exactly
+      one directory (main config, recording rules, static alert rules, and
+      the dynamic-alerts read-write target all under
+      `ObservilityManagement/prometheus/`) instead of two. Four
+      `docker-compose.yml` mount sources repointed: the
+      `observability-management` service's own read-write mount of
+      `dynamic-alerts` (`/data/rules`, `MANAGED_RULES_FILE_PATH`'s target),
+      `prometheus`'s two mounts (`alerts/`, and its own read-only view of
+      the same `dynamic-alerts/`), and `alertmanager`'s config mount.
+    - All five moves verified with `docker compose config --quiet` (clean,
+      aside from pre-existing `.env`-file-not-found warnings for unrelated
+      services this work never touched) and confirmed the source directory
+      no longer exists on disk. The merged service is now the config home
+      for every tier-1 backend this project runs, the same way it's
+      already the home for every domain's application code — with
+      `Alerting/` gone, `services/` no longer contains any of the seven
+      original service directories at all; this was a deliberate,
+      per-request, one-at-a-time departure from the original
+      config-preservation default, verified independently at each step
+      rather than done as one bulk pass.
 - [x] Verified every `docker-compose.yml` volume-mount source path still
       resolves on disk after the cleanup, and re-ran both this service's
       and APIGateway's full test suites to confirm nothing broke.
