@@ -2,10 +2,10 @@
 
 | Priority | Service                           | Status          |
 | -------: | --------------------------------- | --------------- |
-|        1 | Tenant Management Service         | 🚧 In Progress  |
-|        2 | Organization Management Service   | 📝 Planned      |
-|        3 | Identity & Access Management (IAM) | 🚧 In Progress |
-|        4 | User Management Service           | 📝 Planned      |
+|        1 | Tenant Management Service         | ✅ Completed    |
+|        2 | Organization Management Service   | ✅ Completed    |
+|        3 | Identity & Access Management (IAM) |  ✅ Completed  |
+|        4 | User Management Service           | 🚧 In Progress  |
 |        5 | Authentication Service            | 📝 Planned      |
 |        6 | Authorization Service             | 📝 Planned      |
 |        7 | ABAC Policy Management Service    | 📝 Planned      |

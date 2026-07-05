@@ -29,7 +29,7 @@ async def create_entitlement(
     cmd = CreateEntitlementCmd(
         tenant_id=tenant_id, user_id=body.user_id, key=body.key, value=body.value
     )
-    entitlement = await svc.create(cmd)
+    entitlement = await svc.create(cmd, actor_id=body.performed_by)
     return EntitlementResponse.model_validate(entitlement)
 
 
@@ -59,6 +59,9 @@ async def get_entitlement(
 
 @router.delete("/{entitlement_id}", status_code=204)
 async def delete_entitlement(
-    entitlement_id: UUID, tenant_id: TenantIdDep, svc: EntitlementServiceDep
+    entitlement_id: UUID,
+    tenant_id: TenantIdDep,
+    svc: EntitlementServiceDep,
+    performed_by: UUID | None = Query(None),
 ) -> None:
-    await svc.delete(entitlement_id, tenant_id)
+    await svc.delete(entitlement_id, tenant_id, actor_id=performed_by)

@@ -234,8 +234,29 @@ async def test_get_stats(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("sub_resource", ["members", "workspaces", "teams", "groups"])
+@pytest.mark.parametrize("sub_resource", ["workspaces", "groups"])
 async def test_sub_resource_enumeration_is_empty(
+    client: AsyncClient, sub_resource: str
+) -> None:
+    """Workspaces/Groups have no owning storage yet — still the honest,
+    hardcoded empty stub (see TODO.md). Members/Teams graduated to real
+    storage and are covered by test_memberships.py/test_teams.py instead."""
+    tenant_id = uuid.uuid4()
+    r = await client.post(
+        "/api/v1/organizations", json=_payload(), headers=_headers(tenant_id)
+    )
+    org_id = r.json()["id"]
+
+    r2 = await client.get(
+        f"/api/v1/organizations/{org_id}/{sub_resource}", headers=_headers(tenant_id)
+    )
+    assert r2.status_code == 200
+    assert r2.json() == {"items": [], "total": 0}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("sub_resource", ["members", "teams"])
+async def test_new_sub_resources_have_real_paginated_envelope(
     client: AsyncClient, sub_resource: str
 ) -> None:
     tenant_id = uuid.uuid4()
@@ -248,4 +269,8 @@ async def test_sub_resource_enumeration_is_empty(
         f"/api/v1/organizations/{org_id}/{sub_resource}", headers=_headers(tenant_id)
     )
     assert r2.status_code == 200
-    assert r2.json() == {"items": [], "total": 0}
+    data = r2.json()
+    assert data["items"] == []
+    assert data["total"] == 0
+    assert data["has_more"] is False
+    assert data["next_cursor"] is None

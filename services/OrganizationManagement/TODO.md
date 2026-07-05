@@ -1,10 +1,12 @@
 # OrganizationManagement — Implementation Notes
 
 **Status: Implemented.** Every endpoint in `README.md`'s API Reference is
-live; 19/19 tests pass; wired into `docker-compose.yml` and APIGateway's
+live; 48/48 tests pass; wired into `docker-compose.yml` and APIGateway's
 route registry; Docker image builds and boots for real (see "Docker
 build/run" below — a build-breaking Dockerfile bug was found and fixed
-here).
+here). A second pass (`/org-service` skill review → membership/teams/
+invitations/audit-trail/settings-history) added real storage for what were
+previously honest empty stubs — see "Second pass" below.
 
 ## What this is
 
@@ -189,3 +191,107 @@ startup (non-fatal, `enable_tracing` degrades gracefully) — same
 `shared/observability` runtime-import gap already accepted for `Tenent`/
 `APIGateway`/`ObservilityManagement` (see mypy note above); not something
 to solve inside this service alone.
+
+## Second pass — membership, teams, invitations, audit trail, settings history
+
+The `/org-service` skill review found this service solid on lifecycle CRUD
+and tenant isolation, but with five gaps against its checklist: membership
+management, teams/departments, invitations, audit logging, and settings
+versioning. The user chose to implement all five, accepting that a future
+dedicated Membership/Group service (per `Implementation-order.md`'s later
+sequencing) may need to migrate this data eventually — not a blocker today.
+
+### Design decisions
+
+1. **Reused `Tenent`'s audit-trail and domain-event conventions rather than
+   inventing new ones.** `OrganizationEvent`/`OrganizationEventRepository`
+   mirror `Tenent/app/models/lifecycle_event.py` +
+   `repositories/lifecycle_event.py` exactly (append-only, cursor-paginated
+   `list_by_organization`). `domain/events.py` (didn't exist before this
+   pass) follows `Tenent/app/domain/events.py`'s dataclass-per-event shape.
+
+2. **Deliberately did NOT add RabbitMQ.** `Tenent`'s `RabbitMQPublisher`/
+   `NullPublisher` fire-and-log pattern exists because Tenent has a real
+   consumer (TenantProvisioning). No Audit Logging or Notification service
+   exists anywhere in this repo yet (`Implementation-order.md` priority 10,
+   not built) — publishing events with zero consumers would be exactly the
+   speculative infrastructure decision #9 above already reasoned against.
+   `OrganizationEvent` itself *is* the audit trail, queryable via
+   `GET /organizations/{id}/events`; RabbitMQ publishing is a mechanical
+   follow-up once a real consumer exists.
+
+3. **One table backs both "teams" and "departments"** (`team_type` column
+   on `OrganizationTeam`) rather than two near-identical tables — same
+   shape (name, description, optional `parent_team_id` for hierarchy), just
+   a different label. `parent_team_id` is validated to belong to the same
+   organization at creation time (`InvalidParentTeamError` otherwise).
+
+4. **`GET /organizations/{id}/groups` was deliberately left untouched as
+   the empty stub it already was.** "Groups" in this service's README was
+   always a placeholder synonym for what a future Group Management service
+   will own; building real storage for it now alongside the new
+   `organization_memberships`/`team_memberships` tables would invent a
+   second, competing membership concept in the same service — exactly what
+   the `org-service` skill's "reject duplicated organization state" AI
+   Behavior guidance warns against. Same reasoning for `workspaces`.
+
+5. **Invitations store only a SHA-256 hash of the raw token, never the raw
+   token itself.** `secrets.token_urlsafe(32)` generates the raw token,
+   returned once in the create-invitation response; only `token_hash` is
+   persisted. Accepting an invitation atomically flips its status to
+   `accepted` in the same transaction as the membership insert — that
+   status flip, not the hash, is what prevents replay (a second accept
+   attempt with the same token still hashes to a match but fails the
+   `status == pending` check). Verified in both the test suite
+   (`test_accept_invitation_replay_prevented`) and against the real running
+   container.
+
+6. **`organization_memberships`/`team_memberships`' `user_id` columns are
+   plain UUIDs, never FKs** — same eventually-consistent-projection
+   reasoning already documented for `tenant_id` (decision #4) and IAM's own
+   `user_id` references: a hard FK could break on an assignment made just
+   before a user's projection syncs, and historical assignments should
+   survive a projection row being deleted. `role_id`/`team_id`/
+   `organization_id` (fully owned, synchronously consistent within this
+   service) use real FKs with `ondelete="CASCADE"`.
+
+7. **Settings history is a full-snapshot version log, not a diff log.**
+   Every `update_settings` call that actually changes a field writes one
+   `OrganizationSettingsHistory` row containing the complete settings state
+   at that version (not just the changed fields) — simpler to reconstruct
+   "what were the settings as of version N" without replaying a diff chain.
+
+### Bug found and fixed (new in this pass, not pre-existing)
+
+**SQLite drops tzinfo on `DateTime(timezone=True)` columns; Postgres
+doesn't.** `InvitationService.accept_invitation` compared
+`invitation.expires_at` (naive when read back from SQLite in tests) against
+`datetime.now(timezone.utc)` (aware), raising
+`TypeError: can't compare offset-naive and offset-aware datetimes` — caught
+immediately by the test suite (`test_accept_invitation`), not a
+production-only gap. Fixed with a small `_as_aware_utc()` helper that treats
+a naive value as UTC before comparing; safe for both dialects since Postgres
+already returns aware values.
+
+### Verification performed (second pass)
+
+- 48/48 tests passing (19 original + 29 new: memberships, teams,
+  invitations, events, settings history), `ruff check`/`ruff format --check`
+  clean, mypy: same 10-error shape as the original pass (no new errors).
+- Alembic: `alembic revision --autogenerate` against real local Postgres
+  correctly detected all 6 new tables (including the FK/composite-PK
+  association tables); `alembic upgrade head` applied cleanly; verified via
+  `\dt`.
+- Docker: rebuilt and booted the container against real Postgres via
+  `docker compose up --build organization-management`. Since exercising the
+  membership/invitation flows requires a real `organizations` row, and
+  organization *creation* requires Tenent (which has its own separate,
+  pre-existing, already-broken Dockerfile bug unrelated to this pass — not
+  fixed here, out of scope), a test organization was inserted directly via
+  SQL and then exercised entirely through the running container's real HTTP
+  API: member add → list (separate requests/sessions, confirming
+  `get_db()`'s commit-on-success behavior holds for the new code paths
+  too), invitation create → accept → replay attempt (correctly 409), and
+  the audit trail endpoint showing all four recorded events
+  (`MemberAdded` ×2, `InvitationCreated`, `InvitationAccepted`) in the
+  correct order. Test data truncated and containers removed afterward.

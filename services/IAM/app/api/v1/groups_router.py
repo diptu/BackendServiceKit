@@ -109,16 +109,22 @@ async def add_group_member(
     svc: GroupServiceDep,
 ) -> None:
     try:
-        await svc.add_member(group.id, body.user_id, tenant_id)
+        await svc.add_member(
+            group.id, body.user_id, tenant_id, actor_id=body.performed_by
+        )
     except GroupMembershipAlreadyExistsError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.delete("/{group_id}/members/{user_id}", status_code=204)
 async def remove_group_member(
-    group: GroupDep, user_id: UUID, tenant_id: TenantIdDep, svc: GroupServiceDep
+    group: GroupDep,
+    user_id: UUID,
+    tenant_id: TenantIdDep,
+    svc: GroupServiceDep,
+    performed_by: UUID | None = Query(None),
 ) -> None:
     try:
-        await svc.remove_member(group.id, user_id, tenant_id)
+        await svc.remove_member(group.id, user_id, tenant_id, actor_id=performed_by)
     except GroupMembershipNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

@@ -18,6 +18,7 @@ from app.domain.exceptions import (
     OrganizationDeletedError,
     OrganizationNotFoundError,
     OrganizationSlugConflictError,
+    TeamNotFoundError,
     TenantNotFoundError,
     TenantServiceUnavailableError,
 )
@@ -91,6 +92,7 @@ def create_app() -> FastAPI:
 def _register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(OrganizationNotFoundError)
     @app.exception_handler(TenantNotFoundError)
+    @app.exception_handler(TeamNotFoundError)
     async def _not_found(request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": str(exc)})
 

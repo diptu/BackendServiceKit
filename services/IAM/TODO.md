@@ -245,3 +245,70 @@ OTel Collector; every other service in this repo benefits from the fix too.
   fine since Compose only resolves that service's own dependency graph.
   Repo-wide fix (creating the missing `.env`/`.env.example` files, or
   removing those `env_file:` references) is a separate, cross-cutting task.
+
+## Third pass: IAM checklist review findings, fixed
+
+Ran the `/IAM-service` skill's review checklist against this service.
+Two real, concrete findings came out of it; both fixed this pass (a third
+finding — no caller authentication anywhere in the request path — is a
+genuine current-state risk but isn't fixable within IAM alone: it's
+blocked on the not-yet-built Authentication Service, priority 5 in
+`Implementation-order.md`. Left as an explicit, documented risk rather
+than worked around).
+
+**1. A real, previously undetected routing bug: `/api/v1/users/{id}/roles`
+was unreachable via the gateway.** When `/api/v1/users` was repointed to
+UserManagement earlier this session, the attribute-assignment sub-resource
+was renamed to avoid the collision (`/user-attributes/{id}`) — but
+`roles_router.py`'s user<->role assignment endpoints define their path
+inline (`@router.post("/users/{user_id}/roles")`) rather than via a
+router-level `prefix=`, so the grep used to find affected routes at the
+time missed it entirely. Confirmed broken by resolving the path through
+`RouteService` directly: it returned `UpstreamService.USER_MANAGEMENT`,
+not `IAM`. Fixed with the same rename pattern already used twice: mounted
+at `/user-roles/{user_id}` instead. Updated `roles_router.py`,
+`test_roles.py`, this service's `README.md`, and APIGateway's
+`route_service.py`/`kong_admin_service.py`/tests (route count 23→24, IAM's
+route count 7→8). 43/43 IAM tests and 130/130 APIGateway tests still pass.
+
+**2. No audit trail for authorization-changing operations.** Role
+assignment/unassignment, role<->permission linkage, group membership,
+tenant membership, and entitlement grant/revoke recorded nothing —
+inconsistent with this repo's own established pattern (`Tenent`'s
+`TenantLifecycleEvent`, `OrganizationManagement`'s `OrganizationEvent`,
+`UserManagement`'s `UserStatusHistory`, `UserLifecycleManagement`'s
+`LifecycleEvent` all built a local audit table before any dedicated Audit
+Logging Service existed). Fixed: new `AuditEvent` model/repository/schema/
+service, a new `GET /api/v1/audit-events` endpoint (tenant-scoped,
+`subject_user_id`/`resource_type` filters, cursor pagination), and every
+grant/revoke method across `RoleService`/`GroupService`/
+`MembershipService`/`EntitlementService` now records an event. Each
+write endpoint accepts an optional `performed_by` field (body for
+POST/create, query param for DELETE), recorded as `actor_id` — **caller-
+supplied and unverified**, same caveat as finding #3 below; not a
+substitute for real authentication, just a courtesy trail until one
+exists. 8 new tests, all passing; full suite 51/51. Confirmed for real
+against a running container + Postgres: assigned a role via the (now
+fixed) `/user-roles/{id}` endpoint with a `performed_by` actor, then
+confirmed the exact event (`role.assigned`, correct `resource_id`,
+`subject_user_id`, `actor_id`) via a separate `GET /audit-events` call —
+not just trusting the write path succeeded silently.
+
+**3. No caller authentication anywhere (documented, not fixed).** Every
+endpoint trusts `X-Tenant-ID` at face value; `secret_key` in `config.py`
+is dead config, never used to sign or verify anything. This is
+architecturally expected right now — Authentication Service doesn't exist
+yet — but it means this service is not currently safe to expose to real
+traffic: anyone who can set an arbitrary `X-Tenant-ID` has full read/write
+access to that tenant's roles, permissions, memberships, and attributes.
+Flagging explicitly here so it isn't mistaken for an oversight when
+Authentication Service is eventually built — closing this gap belongs
+there, not in IAM.
+
+Also fixed in passing: `services/IAM/app/__init__.py`,
+`app/core/__init__.py`, and `app/domain/__init__.py` never existed (unlike
+every sibling service), which made `uv run mypy .` fail outright with
+"Source file found twice" once enough files existed to trigger the
+ambiguity. Added the three missing empty `__init__.py` files — unrelated
+to the audit trail work, just discovered while running this pass's
+quality gate.

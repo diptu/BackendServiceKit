@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from app.models.access_review import AccessReview
 from app.models.attribute import Attribute
+from app.models.audit_event import AuditEvent
 from app.models.entitlement import Entitlement
 from app.models.group import Group, GroupMembership
 from app.models.membership import TenantMembership, UserRole
@@ -17,6 +18,7 @@ from app.models.user_projection import UserProjection
 __all__ = [
     "AccessReview",
     "Attribute",
+    "AuditEvent",
     "Entitlement",
     "Group",
     "GroupMembership",

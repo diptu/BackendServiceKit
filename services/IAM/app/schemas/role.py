@@ -44,6 +44,7 @@ class RoleListResponse(AppBaseModel):
 
 class AssignPermissionRequest(AppBaseModel):
     permission_id: UUID
+    performed_by: UUID | None = None
 
 
 class RolePermissionListResponse(AppBaseModel):
@@ -53,3 +54,4 @@ class RolePermissionListResponse(AppBaseModel):
 
 class AssignRoleRequest(AppBaseModel):
     role_id: UUID
+    performed_by: UUID | None = None

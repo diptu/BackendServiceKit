@@ -19,6 +19,7 @@ class CreateEntitlementRequest(AppBaseModel):
     user_id: UUID
     key: str = Field(..., min_length=1, max_length=255)
     value: _EntitlementValue | None = None
+    performed_by: UUID | None = None
 
 
 class EntitlementResponse(AppBaseModel):

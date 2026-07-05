@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from app.api.v1.access_reviews_router import router as access_reviews_router
 from app.api.v1.attributes_router import router as attributes_router
+from app.api.v1.audit_events_router import router as audit_events_router
 from app.api.v1.entitlements_router import router as entitlements_router
 from app.api.v1.groups_router import router as groups_router
 from app.api.v1.health_router import router as health_router
@@ -29,5 +30,6 @@ _v1.include_router(memberships_router)
 _v1.include_router(attributes_router)
 _v1.include_router(entitlements_router)
 _v1.include_router(access_reviews_router)
+_v1.include_router(audit_events_router)
 
 api_router.include_router(_v1)

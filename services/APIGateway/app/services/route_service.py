@@ -129,16 +129,71 @@ def _build_registry() -> list[Route]:
             cacheable_methods=frozenset(),
             cache_ttl=0,
         ),
-        # Seven prefixes, one upstream — IAM. Covers /api/v1/users/{id}/roles
-        # and /api/v1/users/{id}/attributes too (both start with
-        # /api/v1/users/, so the single "/api/v1/users" prefix already
-        # matches them — no separate route needed). Not cacheable, same
-        # reasoning as OrganizationManagement: no cache-invalidation
-        # publisher wired up yet.
+        # /api/v1/users now points at UserManagement, not IAM — UserManagement
+        # is the authoritative user CRUD service (see
+        # services/UserManagement/TODO.md); IAM's own UserProjection was
+        # always meant as an internal read-only cache, not the public users
+        # API. IAM's attribute-assignment sub-resource was renamed from
+        # /users/{id}/attributes to /user-attributes/{id} specifically to
+        # avoid being swallowed by this prefix (plain string matching, no
+        # path templating — see IAM's attributes_router.py). Not cacheable:
+        # no cache-invalidation publisher wired up yet.
         Route(
             prefix="/api/v1/users",
+            upstream=UpstreamService.USER_MANAGEMENT,
+            base_url=settings.user_management_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            # UserManagement's platform-onboarding invitations — named
+            # "platform-invitations", not "invitations", to avoid colliding
+            # with OrganizationManagement's own "/api/v1/invitations"
+            # (different concept: org-level invites vs. platform onboarding).
+            prefix="/api/v1/platform-invitations",
+            upstream=UpstreamService.USER_MANAGEMENT,
+            base_url=settings.user_management_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            prefix="/api/v1/user-attributes",
             upstream=UpstreamService.IAM,
             base_url=settings.iam_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            # IAM's user<->role assignment — renamed from the README's
+            # literal /users/{id}/roles for the exact same reason as
+            # /api/v1/user-attributes above (would be swallowed by
+            # /api/v1/users otherwise). This was a real, previously
+            # undetected gap: roles_router.py defines this path inline
+            # (no router-level prefix=), so it wasn't caught when
+            # /api/v1/users was first repointed to UserManagement.
+            prefix="/api/v1/user-roles",
+            upstream=UpstreamService.IAM,
+            base_url=settings.iam_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            # State-machine orchestration on top of UserManagement's
+            # identity record — locked/restore/onboard/offboard. Not
+            # /api/v1/users/{id}/... as its README literally shows, since
+            # /api/v1/users already points at UserManagement.
+            prefix="/api/v1/user-lifecycle",
+            upstream=UpstreamService.USER_LIFECYCLE_MANAGEMENT,
+            base_url=settings.user_lifecycle_management_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            # No collision to resolve here — /api/v1/profiles is a literal
+            # prefix nothing else in this registry has claimed.
+            prefix="/api/v1/profiles",
+            upstream=UpstreamService.USER_PROFILE_MANAGEMENT,
+            base_url=settings.user_profile_management_base_url,
             cacheable_methods=frozenset(),
             cache_ttl=0,
         ),

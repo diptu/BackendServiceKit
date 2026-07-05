@@ -2,6 +2,14 @@
 
 Implements the Roles, Permissions-on-a-role, and User Roles sections of
 services/IAM/README.md's API Reference.
+
+User<->role assignment is mounted at /user-roles/{user_id}, not the
+README's literal /users/{user_id}/roles — APIGateway's /api/v1/users
+prefix now points at UserManagement (see services/UserManagement/TODO.md),
+and its route registry does plain string-prefix matching with no path
+templating, so a nested /users/{user_id}/roles path would be silently
+swallowed by that prefix and never reach IAM. Same rename precedent as
+this service's own tenant-memberships and attributes routes.
 """
 
 from __future__ import annotations
@@ -120,7 +128,9 @@ async def add_role_permission(
     svc: RoleServiceDep,
 ) -> None:
     try:
-        await svc.add_permission(role.id, body.permission_id, tenant_id)
+        await svc.add_permission(
+            role.id, body.permission_id, tenant_id, actor_id=body.performed_by
+        )
     except PermissionNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RolePermissionAlreadyAssignedError as exc:
@@ -129,10 +139,16 @@ async def add_role_permission(
 
 @router.delete("/roles/{role_id}/permissions/{permission_id}", status_code=204)
 async def remove_role_permission(
-    role: RoleDep, permission_id: UUID, tenant_id: TenantIdDep, svc: RoleServiceDep
+    role: RoleDep,
+    permission_id: UUID,
+    tenant_id: TenantIdDep,
+    svc: RoleServiceDep,
+    performed_by: UUID | None = Query(None),
 ) -> None:
     try:
-        await svc.remove_permission(role.id, permission_id, tenant_id)
+        await svc.remove_permission(
+            role.id, permission_id, tenant_id, actor_id=performed_by
+        )
     except RolePermissionNotAssignedError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -142,7 +158,7 @@ async def remove_role_permission(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/users/{user_id}/roles", response_model=RoleListResponse)
+@router.get("/user-roles/{user_id}", response_model=RoleListResponse)
 async def list_user_roles(
     user_id: UUID, tenant_id: TenantIdDep, svc: RoleServiceDep
 ) -> RoleListResponse:
@@ -154,7 +170,7 @@ async def list_user_roles(
     )
 
 
-@router.post("/users/{user_id}/roles", status_code=204)
+@router.post("/user-roles/{user_id}", status_code=204)
 async def assign_user_role(
     user_id: UUID,
     body: AssignRoleRequest,
@@ -162,16 +178,22 @@ async def assign_user_role(
     svc: RoleServiceDep,
 ) -> None:
     try:
-        await svc.assign_to_user(user_id, body.role_id, tenant_id)
+        await svc.assign_to_user(
+            user_id, body.role_id, tenant_id, actor_id=body.performed_by
+        )
     except UserRoleAlreadyAssignedError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.delete("/users/{user_id}/roles/{role_id}", status_code=204)
+@router.delete("/user-roles/{user_id}/{role_id}", status_code=204)
 async def unassign_user_role(
-    user_id: UUID, role_id: UUID, tenant_id: TenantIdDep, svc: RoleServiceDep
+    user_id: UUID,
+    role_id: UUID,
+    tenant_id: TenantIdDep,
+    svc: RoleServiceDep,
+    performed_by: UUID | None = Query(None),
 ) -> None:
     try:
-        await svc.unassign_from_user(user_id, role_id, tenant_id)
+        await svc.unassign_from_user(user_id, role_id, tenant_id, actor_id=performed_by)
     except UserRoleNotAssignedError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

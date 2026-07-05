@@ -360,6 +360,109 @@ services:
       start_period: 30s
       retries: 3
 
+  user-management:
+    container_name: backendservicekit-user-management
+    build:
+      context: ./services/UserManagement
+      dockerfile: Dockerfile
+    ports:
+      - "8023:8000"
+    env_file:
+      - ./services/UserManagement/.env.example
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_user
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      RABBITMQ_EXCHANGE: identity.events
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8080"]'
+      OTEL_SERVICE_NAME: nutratenant-user-management
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      ENABLE_TRACING: "true"
+      ENABLE_METRICS: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  user-lifecycle-management:
+    container_name: backendservicekit-user-lifecycle-management
+    build:
+      context: ./services/UserLifecycleManagement
+      dockerfile: Dockerfile
+    ports:
+      - "8024:8000"
+    env_file:
+      - ./services/UserLifecycleManagement/.env.example
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_user_lifecycle
+      USER_MANAGEMENT_BASE_URL: http://user-management:8000
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8080"]'
+      OTEL_SERVICE_NAME: nutratenant-user-lifecycle-management
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      ENABLE_TRACING: "true"
+      ENABLE_METRICS: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      user-management:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  user-profile-management:
+    container_name: backendservicekit-user-profile-management
+    build:
+      context: ./services/UserProfileManagement
+      dockerfile: Dockerfile
+    ports:
+      - "8025:8000"
+    env_file:
+      - ./services/UserProfileManagement/.env.example
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_user_profile
+      USER_MANAGEMENT_BASE_URL: http://user-management:8000
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8080"]'
+      OTEL_SERVICE_NAME: nutratenant-user-profile-management
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      ENABLE_TRACING: "true"
+      ENABLE_METRICS: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      user-management:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
   # ── Kong: DB-less declarative edge gateway ─────────────────────────────────
   # NOTE: Kong Admin API runs on 8001, which conflicts with tenant-management.
   #       Stop tenant-management before starting Kong in the same environment.

@@ -7,7 +7,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.commands import CreateRoleCmd, UpdateRoleCmd
-from app.domain.enums import EntityStatus
+from app.domain.enums import AuditEventType, EntityStatus
 from app.domain.exceptions import (
     PermissionNotFoundError,
     RoleNameConflictError,
@@ -19,6 +19,7 @@ from app.domain.exceptions import (
 )
 from app.models.permission import Permission
 from app.models.role import Role
+from app.repositories.audit_event import AuditEventRepository
 from app.repositories.base import PageResult
 from app.repositories.permission import PermissionRepository
 from app.repositories.role import RoleFilter, RoleRepository
@@ -29,6 +30,7 @@ class RoleService:
         self._session = session
         self._role_repo = RoleRepository(session)
         self._permission_repo = PermissionRepository(session)
+        self._audit_repo = AuditEventRepository(session)
 
     # ------------------------------------------------------------------
     # CRUD
@@ -78,7 +80,12 @@ class RoleService:
     # ------------------------------------------------------------------
 
     async def add_permission(
-        self, role_id: uuid.UUID, permission_id: uuid.UUID, tenant_id: uuid.UUID
+        self,
+        role_id: uuid.UUID,
+        permission_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        *,
+        actor_id: uuid.UUID | None = None,
     ) -> None:
         await self.get(role_id, tenant_id)
         permission = await self._permission_repo.get_by_id(
@@ -91,14 +98,35 @@ class RoleService:
             raise RolePermissionAlreadyAssignedError(role_id, permission_id)
 
         await self._role_repo.add_permission(role_id, permission_id)
+        await self._audit_repo.record(
+            tenant_id=tenant_id,
+            event_type=AuditEventType.ROLE_PERMISSION_ADDED,
+            resource_type="role",
+            resource_id=role_id,
+            actor_id=actor_id,
+            details={"permission_id": str(permission_id)},
+        )
 
     async def remove_permission(
-        self, role_id: uuid.UUID, permission_id: uuid.UUID, tenant_id: uuid.UUID
+        self,
+        role_id: uuid.UUID,
+        permission_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        *,
+        actor_id: uuid.UUID | None = None,
     ) -> None:
         await self.get(role_id, tenant_id)
         if not await self._role_repo.has_permission(role_id, permission_id):
             raise RolePermissionNotAssignedError(role_id, permission_id)
         await self._role_repo.remove_permission(role_id, permission_id)
+        await self._audit_repo.record(
+            tenant_id=tenant_id,
+            event_type=AuditEventType.ROLE_PERMISSION_REMOVED,
+            resource_type="role",
+            resource_id=role_id,
+            actor_id=actor_id,
+            details={"permission_id": str(permission_id)},
+        )
 
     async def list_permissions(
         self, role_id: uuid.UUID, tenant_id: uuid.UUID
@@ -111,20 +139,46 @@ class RoleService:
     # ------------------------------------------------------------------
 
     async def assign_to_user(
-        self, user_id: uuid.UUID, role_id: uuid.UUID, tenant_id: uuid.UUID
+        self,
+        user_id: uuid.UUID,
+        role_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        *,
+        actor_id: uuid.UUID | None = None,
     ) -> None:
         await self.get(role_id, tenant_id)
         if await self._role_repo.has_role(user_id, role_id):
             raise UserRoleAlreadyAssignedError(user_id, role_id)
         await self._role_repo.assign_to_user(user_id, role_id, tenant_id)
+        await self._audit_repo.record(
+            tenant_id=tenant_id,
+            event_type=AuditEventType.ROLE_ASSIGNED,
+            resource_type="role",
+            resource_id=role_id,
+            subject_user_id=user_id,
+            actor_id=actor_id,
+        )
 
     async def unassign_from_user(
-        self, user_id: uuid.UUID, role_id: uuid.UUID, tenant_id: uuid.UUID
+        self,
+        user_id: uuid.UUID,
+        role_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        *,
+        actor_id: uuid.UUID | None = None,
     ) -> None:
         await self.get(role_id, tenant_id)
         if not await self._role_repo.has_role(user_id, role_id):
             raise UserRoleNotAssignedError(user_id, role_id)
         await self._role_repo.unassign_from_user(user_id, role_id)
+        await self._audit_repo.record(
+            tenant_id=tenant_id,
+            event_type=AuditEventType.ROLE_UNASSIGNED,
+            resource_type="role",
+            resource_id=role_id,
+            subject_user_id=user_id,
+            actor_id=actor_id,
+        )
 
     async def list_roles_for_user(
         self, user_id: uuid.UUID, tenant_id: uuid.UUID

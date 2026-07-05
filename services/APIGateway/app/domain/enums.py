@@ -13,6 +13,9 @@ class UpstreamService(StrEnum):
     OBSERVABILITY_MANAGEMENT = "observability_management"
     ORGANIZATION_MANAGEMENT = "organization_management"
     IAM = "iam"
+    USER_MANAGEMENT = "user_management"
+    USER_LIFECYCLE_MANAGEMENT = "user_lifecycle_management"
+    USER_PROFILE_MANAGEMENT = "user_profile_management"
 
 
 class CacheResult(StrEnum):

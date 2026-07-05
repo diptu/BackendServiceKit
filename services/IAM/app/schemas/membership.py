@@ -11,6 +11,7 @@ from app.schemas.base import AppBaseModel
 
 class AddTenantMemberRequest(AppBaseModel):
     user_id: UUID
+    performed_by: UUID | None = None
 
 
 class TenantMembershipResponse(AppBaseModel):

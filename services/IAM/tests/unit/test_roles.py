@@ -165,29 +165,29 @@ async def test_user_role_assignment(client: AsyncClient) -> None:
     ).json()["id"]
 
     r = await client.post(
-        f"/api/v1/users/{user_id}/roles",
+        f"/api/v1/user-roles/{user_id}",
         json={"role_id": role_id},
         headers=_headers(tenant_id),
     )
     assert r.status_code == 204
 
-    r2 = await client.get(f"/api/v1/users/{user_id}/roles", headers=_headers(tenant_id))
+    r2 = await client.get(f"/api/v1/user-roles/{user_id}", headers=_headers(tenant_id))
     assert r2.status_code == 200
     assert r2.json()["total"] == 1
 
     r3 = await client.post(
-        f"/api/v1/users/{user_id}/roles",
+        f"/api/v1/user-roles/{user_id}",
         json={"role_id": role_id},
         headers=_headers(tenant_id),
     )
     assert r3.status_code == 409
 
     r4 = await client.delete(
-        f"/api/v1/users/{user_id}/roles/{role_id}", headers=_headers(tenant_id)
+        f"/api/v1/user-roles/{user_id}/{role_id}", headers=_headers(tenant_id)
     )
     assert r4.status_code == 204
 
     r5 = await client.delete(
-        f"/api/v1/users/{user_id}/roles/{role_id}", headers=_headers(tenant_id)
+        f"/api/v1/user-roles/{user_id}/{role_id}", headers=_headers(tenant_id)
     )
     assert r5.status_code == 404

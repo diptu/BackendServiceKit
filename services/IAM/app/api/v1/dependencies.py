@@ -25,6 +25,7 @@ from app.repositories.permission import PermissionRepository
 from app.repositories.role import RoleRepository
 from app.services.access_review_service import AccessReviewService
 from app.services.attribute_service import AttributeService
+from app.services.audit_event_service import AuditEventService
 from app.services.entitlement_service import EntitlementService
 from app.services.group_service import GroupService
 from app.services.membership_service import MembershipService
@@ -88,6 +89,12 @@ async def get_access_review_service(
 
 async def get_user_service(db: Annotated[AsyncSession, Depends(get_db)]) -> UserService:
     return UserService(db)
+
+
+async def get_audit_event_service(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> AuditEventService:
+    return AuditEventService(db)
 
 
 # ---------------------------------------------------------------------------
@@ -154,3 +161,4 @@ AccessReviewServiceDep = Annotated[
     AccessReviewService, Depends(get_access_review_service)
 ]
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
+AuditEventServiceDep = Annotated[AuditEventService, Depends(get_audit_event_service)]

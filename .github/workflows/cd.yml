@@ -19,7 +19,7 @@ jobs:
       matrix:
         # Add your services here as you build them out.
         # Format: folder_name must match the actual directory casing under services/.
-        service: [IAM, TenantManagement]
+        service: [IAM, TenantManagement,OrganizationManagement, UserManagement]
 
     steps:
       - name: Checkout code

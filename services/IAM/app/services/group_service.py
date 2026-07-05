@@ -7,7 +7,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.commands import CreateGroupCmd, UpdateGroupCmd
-from app.domain.enums import EntityStatus
+from app.domain.enums import AuditEventType, EntityStatus
 from app.domain.exceptions import (
     GroupMembershipAlreadyExistsError,
     GroupMembershipNotFoundError,
@@ -15,6 +15,7 @@ from app.domain.exceptions import (
     GroupNotFoundError,
 )
 from app.models.group import Group
+from app.repositories.audit_event import AuditEventRepository
 from app.repositories.base import PageResult
 from app.repositories.group import GroupFilter, GroupRepository
 
@@ -23,6 +24,7 @@ class GroupService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
         self._repo = GroupRepository(session)
+        self._audit_repo = AuditEventRepository(session)
 
     async def create(self, cmd: CreateGroupCmd) -> Group:
         if await self._repo.exists_by_name(cmd.tenant_id, cmd.name):
@@ -68,20 +70,46 @@ class GroupService:
     # ------------------------------------------------------------------
 
     async def add_member(
-        self, group_id: uuid.UUID, user_id: uuid.UUID, tenant_id: uuid.UUID
+        self,
+        group_id: uuid.UUID,
+        user_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        *,
+        actor_id: uuid.UUID | None = None,
     ) -> None:
         await self.get(group_id, tenant_id)
         if await self._repo.has_member(group_id, user_id):
             raise GroupMembershipAlreadyExistsError(group_id, user_id)
         await self._repo.add_member(group_id, user_id)
+        await self._audit_repo.record(
+            tenant_id=tenant_id,
+            event_type=AuditEventType.GROUP_MEMBER_ADDED,
+            resource_type="group",
+            resource_id=group_id,
+            subject_user_id=user_id,
+            actor_id=actor_id,
+        )
 
     async def remove_member(
-        self, group_id: uuid.UUID, user_id: uuid.UUID, tenant_id: uuid.UUID
+        self,
+        group_id: uuid.UUID,
+        user_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        *,
+        actor_id: uuid.UUID | None = None,
     ) -> None:
         await self.get(group_id, tenant_id)
         if not await self._repo.has_member(group_id, user_id):
             raise GroupMembershipNotFoundError(group_id, user_id)
         await self._repo.remove_member(group_id, user_id)
+        await self._audit_repo.record(
+            tenant_id=tenant_id,
+            event_type=AuditEventType.GROUP_MEMBER_REMOVED,
+            resource_type="group",
+            resource_id=group_id,
+            subject_user_id=user_id,
+            actor_id=actor_id,
+        )
 
     async def list_members(
         self, group_id: uuid.UUID, tenant_id: uuid.UUID

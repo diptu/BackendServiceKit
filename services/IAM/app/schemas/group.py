@@ -43,3 +43,4 @@ class GroupListResponse(AppBaseModel):
 
 class AddGroupMemberRequest(AppBaseModel):
     user_id: UUID
+    performed_by: UUID | None = None

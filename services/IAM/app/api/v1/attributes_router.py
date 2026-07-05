@@ -1,6 +1,14 @@
 """User Attributes — ABAC key/value data.
 
 Implements the Attributes section of services/IAM/README.md's API Reference.
+
+Mounted at /user-attributes/{user_id}, not the literal /users/{user_id}/attributes
+from the README — APIGateway's /api/v1/users prefix now points at
+UserManagement (the authoritative user CRUD service), and its route
+registry does plain string-prefix matching with no path templating, so a
+nested /users/{user_id}/attributes path would also be swallowed by that
+prefix. Same rename precedent as IAM's own tenant-memberships route. See
+services/UserManagement/TODO.md.
 """
 
 from __future__ import annotations
@@ -19,7 +27,7 @@ from app.schemas.attribute import (
     UpdateAttributeRequest,
 )
 
-router = APIRouter(prefix="/users/{user_id}/attributes", tags=["Attributes"])
+router = APIRouter(prefix="/user-attributes/{user_id}", tags=["Attributes"])
 
 
 @router.get("", response_model=AttributeListResponse)

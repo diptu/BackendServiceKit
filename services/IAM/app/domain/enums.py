@@ -43,3 +43,23 @@ class AccessReviewStatus(StrEnum):
     PENDING = "pending"
     APPROVED = "approved"
     REVOKED = "revoked"
+
+
+class AuditEventType(StrEnum):
+    """Every authorization-changing operation this service audits.
+
+    Deliberately scoped to grant/revoke relationships (who has access to
+    what), not generic CRUD on Role/Permission/Group definitions
+    themselves — see AuditEvent's docstring.
+    """
+
+    ROLE_ASSIGNED = "role.assigned"
+    ROLE_UNASSIGNED = "role.unassigned"
+    ROLE_PERMISSION_ADDED = "role.permission_added"
+    ROLE_PERMISSION_REMOVED = "role.permission_removed"
+    GROUP_MEMBER_ADDED = "group.member_added"
+    GROUP_MEMBER_REMOVED = "group.member_removed"
+    TENANT_MEMBERSHIP_ADDED = "tenant_membership.added"
+    TENANT_MEMBERSHIP_REMOVED = "tenant_membership.removed"
+    ENTITLEMENT_GRANTED = "entitlement.granted"
+    ENTITLEMENT_REVOKED = "entitlement.revoked"

@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     observability_management_base_url: str = "http://localhost:8020"
     organization_management_base_url: str = "http://localhost:8021"
     iam_base_url: str = "http://localhost:8022"
+    user_management_base_url: str = "http://localhost:8023"
+    user_lifecycle_management_base_url: str = "http://localhost:8024"
+    user_profile_management_base_url: str = "http://localhost:8025"
     redis_tenent_cache_ttl: int = 300        # 5 min: tenant + lifecycle GET responses
     redis_isolation_cache_ttl: int = 60      # 1 min: isolation decision responses
     redis_provisioning_cache_ttl: int = 30

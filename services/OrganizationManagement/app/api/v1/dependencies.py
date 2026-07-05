@@ -20,7 +20,10 @@ from app.infrastructure.clients.tenent_client import TenentClient
 from app.infrastructure.database.dependencies import get_db
 from app.models.organization import Organization
 from app.repositories.organization import OrganizationRepository
+from app.services.invitation_service import InvitationService
+from app.services.membership_service import MembershipService
 from app.services.organization_service import OrganizationService
+from app.services.team_service import TeamService
 
 
 def get_tenent_client() -> TenentClient:
@@ -32,6 +35,22 @@ async def get_organization_service(
     tenent_client: Annotated[TenentClient, Depends(get_tenent_client)],
 ) -> OrganizationService:
     return OrganizationService(db, tenent_client)
+
+
+async def get_membership_service(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> MembershipService:
+    return MembershipService(db)
+
+
+async def get_team_service(db: Annotated[AsyncSession, Depends(get_db)]) -> TeamService:
+    return TeamService(db)
+
+
+async def get_invitation_service(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> InvitationService:
+    return InvitationService(db)
 
 
 async def get_tenant_id(
@@ -62,3 +81,6 @@ OrganizationDep = Annotated[Organization, Depends(get_organization_or_404)]
 OrganizationServiceDep = Annotated[
     OrganizationService, Depends(get_organization_service)
 ]
+MembershipServiceDep = Annotated[MembershipService, Depends(get_membership_service)]
+TeamServiceDep = Annotated[TeamService, Depends(get_team_service)]
+InvitationServiceDep = Annotated[InvitationService, Depends(get_invitation_service)]

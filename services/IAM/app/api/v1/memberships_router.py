@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.api.v1.dependencies import MembershipServiceDep
 from app.domain.exceptions import (
@@ -50,7 +50,9 @@ async def add_tenant_member(
     tenant_id: UUID, body: AddTenantMemberRequest, svc: MembershipServiceDep
 ) -> TenantMembershipResponse:
     try:
-        membership = await svc.add_member(tenant_id, body.user_id)
+        membership = await svc.add_member(
+            tenant_id, body.user_id, actor_id=body.performed_by
+        )
     except TenantMembershipAlreadyExistsError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return TenantMembershipResponse.model_validate(membership)
@@ -58,9 +60,12 @@ async def add_tenant_member(
 
 @router.delete("/{user_id}", status_code=204)
 async def remove_tenant_member(
-    tenant_id: UUID, user_id: UUID, svc: MembershipServiceDep
+    tenant_id: UUID,
+    user_id: UUID,
+    svc: MembershipServiceDep,
+    performed_by: UUID | None = Query(None),
 ) -> None:
     try:
-        await svc.remove_member(tenant_id, user_id)
+        await svc.remove_member(tenant_id, user_id, actor_id=performed_by)
     except TenantMembershipNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

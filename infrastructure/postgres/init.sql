@@ -15,3 +15,12 @@ SELECT 'CREATE DATABASE nutratenant_organization'
 
 SELECT 'CREATE DATABASE nutratenant_identity'
   WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'nutratenant_identity')\gexec
+
+SELECT 'CREATE DATABASE nutratenant_user'
+  WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'nutratenant_user')\gexec
+
+SELECT 'CREATE DATABASE nutratenant_user_lifecycle'
+  WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'nutratenant_user_lifecycle')\gexec
+
+SELECT 'CREATE DATABASE nutratenant_user_profile'
+  WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'nutratenant_user_profile')\gexec
