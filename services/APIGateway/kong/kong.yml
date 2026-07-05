@@ -6,6 +6,8 @@
 #   8080  FastAPI APIGateway (moved inward — management + Redis cache + RabbitMQ events)
 #   8005  Tenent combined service (TenantManagement + TenantLifecycle + TenantIsolation)
 #   8003  TenantProvisioning
+#   8020  ObservilityManagement
+#   8021  OrganizationManagement
 
 _format_version: "3.0"
 
@@ -37,6 +39,22 @@ services:
     write_timeout: 5000
     retries: 0
     tags: [management]
+
+  - name: nutratenant-observability-management
+    url: http://observability-management:8000
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 5000
+    retries: 1
+    tags: [observability]
+
+  - name: nutratenant-organization-management
+    url: http://organization-management:8000
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 5000
+    retries: 1
+    tags: [organization]
 
 # ──────────────────────────────────────────────────────────────────────────────
 # ROUTES
@@ -96,6 +114,78 @@ routes:
     preserve_host: false
     protocols: [http, https]
     tags: [health]
+
+  # Seven prefixes, one upstream — ObservilityManagement merges what used to
+  # be seven separate deployables (Logging, DistributedTracing,
+  # MetricsCollection, Monitoring, Alerting, Observability, HealthCheck)
+  # into one container. Mirrors route_service.py's registry 1:1.
+  - name: observability-logs-route
+    service: nutratenant-observability-management
+    paths: [/api/v1/logs]
+    strip_path: false
+    preserve_host: false
+    protocols: [http, https]
+    tags: [observability]
+
+  - name: observability-traces-route
+    service: nutratenant-observability-management
+    paths: [/api/v1/traces]
+    strip_path: false
+    preserve_host: false
+    protocols: [http, https]
+    tags: [observability]
+
+  - name: observability-metrics-route
+    service: nutratenant-observability-management
+    paths: [/api/v1/metrics]
+    strip_path: false
+    preserve_host: false
+    protocols: [http, https]
+    tags: [observability]
+
+  - name: observability-monitoring-route
+    service: nutratenant-observability-management
+    paths: [/api/v1/monitoring]
+    strip_path: false
+    preserve_host: false
+    protocols: [http, https]
+    tags: [observability]
+
+  - name: observability-alerts-route
+    service: nutratenant-observability-management
+    paths: [/api/v1/alerts]
+    strip_path: false
+    preserve_host: false
+    protocols: [http, https]
+    tags: [observability]
+
+  # Must be "/api/v1/health" exactly, matching ObservilityManagement's real
+  # mounted path — distinct from health-route above, which is the gateway's
+  # own liveness probe.
+  - name: observability-health-route
+    service: nutratenant-observability-management
+    paths: [/api/v1/health]
+    strip_path: false
+    preserve_host: false
+    protocols: [http, https]
+    tags: [observability]
+
+  - name: observability-correlation-route
+    service: nutratenant-observability-management
+    paths: [/api/v1/observability]
+    strip_path: false
+    preserve_host: false
+    protocols: [http, https]
+    tags: [observability]
+
+  # Organization CRUD, settings, stats, sub-resource enumeration
+  - name: organizations-route
+    service: nutratenant-organization-management
+    paths: [/api/v1/organizations]
+    strip_path: false
+    preserve_host: false
+    protocols: [http, https]
+    tags: [organization]
 
 # ──────────────────────────────────────────────────────────────────────────────
 # PLUGINS (global unless route/service is specified)

@@ -296,6 +296,39 @@ services:
       start_period: 30s
       retries: 3
 
+  organization-management:
+    container_name: backendservicekit-organization-management
+    build:
+      context: ./services/OrganizationManagement
+      dockerfile: Dockerfile
+    ports:
+      - "8021:8000"
+    env_file:
+      - ./services/OrganizationManagement/.env.example
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_organization
+      DATABASE_SSL: "false"
+      TENENT_BASE_URL: http://tenent:8000
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8080"]'
+      OTEL_SERVICE_NAME: nutratenant-organization-management
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      ENABLE_TRACING: "true"
+      ENABLE_METRICS: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
   # ── Kong: DB-less declarative edge gateway ─────────────────────────────────
   # NOTE: Kong Admin API runs on 8001, which conflicts with tenant-management.
   #       Stop tenant-management before starting Kong in the same environment.
@@ -357,6 +390,7 @@ services:
       TENENT_BASE_URL: http://tenent:8000
       TENANT_PROVISIONING_BASE_URL: http://tenant-provisioning:8000
       OBSERVABILITY_MANAGEMENT_BASE_URL: http://observability-management:8000
+      ORGANIZATION_MANAGEMENT_BASE_URL: http://organization-management:8000
       KONG_ADMIN_URL: http://kong:8001
       CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8005","http://localhost:8003"]'
       OTEL_SERVICE_NAME: nutratenant-api-gateway
@@ -372,6 +406,8 @@ services:
       tenent:
         condition: service_healthy
       tenant-provisioning:
+        condition: service_healthy
+      organization-management:
         condition: service_healthy
     networks:
       - backend

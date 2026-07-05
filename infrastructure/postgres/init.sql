@@ -9,3 +9,6 @@ SELECT 'CREATE DATABASE nutratenant_lifecycle'
 
 SELECT 'CREATE DATABASE nutratenant_provisioning'
   WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'nutratenant_provisioning')\gexec
+
+SELECT 'CREATE DATABASE nutratenant_organization'
+  WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'nutratenant_organization')\gexec

@@ -183,11 +183,16 @@ _MERGED_SERVICE_PREFIXES = {
     "/api/v1/observability",
 }
 
+# Every non-cacheable prefix — the seven merged ObservilityManagement
+# prefixes above, plus OrganizationManagement's (no cache-invalidation
+# event wiring yet, so nothing busts a cached GET after a write).
+_NON_CACHEABLE_PREFIXES = _MERGED_SERVICE_PREFIXES | {"/api/v1/organizations"}
+
 
 async def test_list_routes_total_matches_registry(client: AsyncClient) -> None:
     body = (await client.get("/api/v1/gateway/routes")).json()
-    assert body["total"] == 11
-    assert len(body["routes"]) == 11
+    assert body["total"] == 12
+    assert len(body["routes"]) == 12
 
 
 async def test_list_routes_includes_expected_prefixes(client: AsyncClient) -> None:
@@ -198,6 +203,7 @@ async def test_list_routes_includes_expected_prefixes(client: AsyncClient) -> No
         "/api/v1/lifecycle",
         "/api/v1/isolation",
         "/api/v1/provisioning",
+        "/api/v1/organizations",
         *_MERGED_SERVICE_PREFIXES,
     }
 
@@ -213,11 +219,11 @@ async def test_list_routes_cacheable_methods_is_list(client: AsyncClient) -> Non
     body = (await client.get("/api/v1/gateway/routes")).json()
     for route in body["routes"]:
         assert isinstance(route["cacheable_methods"], list)
-        # The merged ObservilityManagement service's seven prefixes are all
-        # deliberately non-cacheable — none of logs/traces/metrics/
-        # monitoring/alerts/health/observability data should ever be
-        # served stale.
-        if route["prefix"] in _MERGED_SERVICE_PREFIXES:
+        # The merged ObservilityManagement service's seven prefixes, plus
+        # OrganizationManagement's, are all deliberately non-cacheable —
+        # none of logs/traces/metrics/monitoring/alerts/health/
+        # observability/organizations data should ever be served stale.
+        if route["prefix"] in _NON_CACHEABLE_PREFIXES:
             assert route["cacheable_methods"] == []
         else:
             assert len(route["cacheable_methods"]) > 0
@@ -226,7 +232,7 @@ async def test_list_routes_cacheable_methods_is_list(client: AsyncClient) -> Non
 async def test_list_routes_cache_ttl_is_positive(client: AsyncClient) -> None:
     body = (await client.get("/api/v1/gateway/routes")).json()
     for route in body["routes"]:
-        if route["prefix"] in _MERGED_SERVICE_PREFIXES:
+        if route["prefix"] in _NON_CACHEABLE_PREFIXES:
             assert route["cache_ttl_seconds"] == 0
         else:
             assert route["cache_ttl_seconds"] > 0
@@ -281,14 +287,15 @@ async def test_gateway_status_upstreams_unreachable_when_no_services(
 
 
 async def test_gateway_status_probes_unique_upstreams_only(client: AsyncClient) -> None:
-    """Routes sharing an upstream are de-duped — still only 3 unique
+    """Routes sharing an upstream are de-duped — still only 4 unique
     upstreams probed even though observability_management now covers seven
     routes instead of one: dedup-by-upstream means this container's
     /health is probed once, not seven redundant times."""
     body = (await client.get("/api/v1/gateway/status")).json()
     names = [u["name"] for u in body["upstreams"]]
     assert len(names) == len(set(names)), "upstream names must be unique"
-    assert len(names) == 3  # tenent + tenant_provisioning + observability_management
+    # tenent + tenant_provisioning + observability_management + organization_management
+    assert len(names) == 4
 
 
 async def test_gateway_status_upstreams_have_name_and_base_url(client: AsyncClient) -> None:
@@ -436,7 +443,7 @@ async def test_kong_sync_syncs_all_routes_when_kong_available(
     kong_client: AsyncClient,
 ) -> None:
     body = (await kong_client.post("/api/v1/gateway/kong/sync")).json()
-    assert len(body["synced"]) == 11
+    assert len(body["synced"]) == 12
     assert len(body["failed"]) == 0
 
 
@@ -446,5 +453,5 @@ async def test_kong_sync_marks_all_failed_when_kong_unreachable(
     resp = await client.post("/api/v1/gateway/kong/sync")
     assert resp.status_code == 200
     body = resp.json()
-    assert len(body["failed"]) == 11
+    assert len(body["failed"]) == 12
     assert len(body["synced"]) == 0

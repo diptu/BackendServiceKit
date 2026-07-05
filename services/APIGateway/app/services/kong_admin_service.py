@@ -27,6 +27,7 @@ KONG_ROUTE_PREFIX_MAP: dict[str, str] = {
     "/api/v1/alerts": "nutratenant-observability-management",
     "/api/v1/health": "nutratenant-observability-management",
     "/api/v1/observability": "nutratenant-observability-management",
+    "/api/v1/organizations": "nutratenant-organization-management",
     "/api/v1/gateway": "nutratenant-api-gateway",
 }
 

@@ -15,7 +15,7 @@ def svc() -> RouteService:
 
 
 def test_routes_are_registered(svc: RouteService) -> None:
-    assert len(svc.routes) == 11
+    assert len(svc.routes) == 12
 
 
 def test_resolve_tenants_root(svc: RouteService) -> None:
@@ -123,6 +123,25 @@ def test_resolve_by_upstream_observability_management_returns_seven_routes(
     }
     # all seven point at the same one base_url — one merged backend
     assert len({r.base_url for r in routes}) == 1
+
+
+def test_resolve_organizations_root(svc: RouteService) -> None:
+    route = svc.resolve("/api/v1/organizations")
+    assert route.upstream == UpstreamService.ORGANIZATION_MANAGEMENT
+
+
+def test_organizations_route_is_never_cacheable(svc: RouteService) -> None:
+    route = svc.resolve("/api/v1/organizations/550e8400-e29b-41d4-a716-446655440000")
+    assert route.cacheable_methods == frozenset()
+    assert route.cache_ttl == 0
+
+
+def test_resolve_by_upstream_organization_management_returns_one_route(
+    svc: RouteService,
+) -> None:
+    routes = svc.resolve_by_upstream(UpstreamService.ORGANIZATION_MANAGEMENT)
+    assert len(routes) == 1
+    assert routes[0].prefix == "/api/v1/organizations"
 
 
 def test_upstream_url_builds_correctly(svc: RouteService) -> None:

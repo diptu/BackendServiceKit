@@ -118,6 +118,17 @@ def _build_registry() -> list[Route]:
             cacheable_methods=frozenset(),
             cache_ttl=0,
         ),
+        Route(
+            # Not cacheable — unlike Tenent's routes, OrganizationManagement
+            # has no domain-event publisher wiring writes into a cache
+            # invalidation yet, so caching GETs here would risk serving
+            # stale data after an update/delete with nothing to bust it.
+            prefix="/api/v1/organizations",
+            upstream=UpstreamService.ORGANIZATION_MANAGEMENT,
+            base_url=settings.organization_management_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
     ]
 
 

@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app
+from starlette import status
 
 from app.api.router import api_router
 from app.core.config import settings
@@ -73,10 +74,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # ── OpenTelemetry ────────────────────────────────────────────────────
     if settings.enable_tracing:
         try:
-            from shared.observability.tracing.tracer import configure_tracer
-            from shared.observability.tracing.propagators import configure_propagator
             from shared.observability.instrumentation.fastapi import instrument_fastapi
             from shared.observability.instrumentation.httpx import instrument_httpx
+            from shared.observability.tracing.propagators import configure_propagator
+            from shared.observability.tracing.tracer import configure_tracer
 
             _tp = configure_tracer(settings.app_name, settings.otlp_endpoint, settings.environment)
             configure_propagator()
@@ -121,8 +122,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         # Start cache-invalidation consumer if Redis is available
         if app.state.redis is not None:
-            from app.services.cache_service import CacheService
             from app.domain.enums import UpstreamService
+            from app.services.cache_service import CacheService
 
             cache = CacheService(app.state.redis)
             upstream_names = [u.value for u in UpstreamService]
@@ -189,6 +190,6 @@ if settings.enable_metrics:
 async def _unhandled(_: Request, exc: Exception) -> JSONResponse:
     logger.exception("unhandled_exception", exc_info=exc)
     return JSONResponse(
-        status_code=500,
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Internal server error."},
     )
