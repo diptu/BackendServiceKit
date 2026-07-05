@@ -12,6 +12,7 @@ class UpstreamService(StrEnum):
     TENANT_PROVISIONING = "tenant_provisioning"
     OBSERVABILITY_MANAGEMENT = "observability_management"
     ORGANIZATION_MANAGEMENT = "organization_management"
+    IAM = "iam"
 
 
 class CacheResult(StrEnum):

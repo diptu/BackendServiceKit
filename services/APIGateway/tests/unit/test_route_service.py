@@ -15,7 +15,7 @@ def svc() -> RouteService:
 
 
 def test_routes_are_registered(svc: RouteService) -> None:
-    assert len(svc.routes) == 12
+    assert len(svc.routes) == 19
 
 
 def test_resolve_tenants_root(svc: RouteService) -> None:
@@ -164,3 +164,57 @@ def test_gateway_path_does_not_match_any_route(svc: RouteService) -> None:
 def test_old_tenant_lifecycle_prefix_no_longer_routed(svc: RouteService) -> None:
     with pytest.raises(RouteNotFoundError):
         svc.resolve("/api/v1/tenant-lifecycle/abc")
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "/api/v1/users",
+        "/api/v1/roles",
+        "/api/v1/permissions",
+        "/api/v1/groups",
+        "/api/v1/tenant-memberships",
+        "/api/v1/entitlements",
+        "/api/v1/access-reviews",
+    ],
+)
+def test_resolve_iam_prefixes(svc: RouteService, prefix: str) -> None:
+    route = svc.resolve(prefix)
+    assert route.upstream == UpstreamService.IAM
+    assert route.cacheable_methods == frozenset()
+    assert route.cache_ttl == 0
+
+
+def test_resolve_iam_users_sub_paths_route_to_iam(svc: RouteService) -> None:
+    """/api/v1/users/{id}/roles and /api/v1/users/{id}/attributes are IAM's
+    own sub-resources, not a separate registration — the single
+    "/api/v1/users" prefix already covers them."""
+    role_assignment = svc.resolve("/api/v1/users/550e8400-e29b-41d4-a716-446655440000/roles")
+    assert role_assignment.upstream == UpstreamService.IAM
+
+    attributes = svc.resolve("/api/v1/users/550e8400-e29b-41d4-a716-446655440000/attributes")
+    assert attributes.upstream == UpstreamService.IAM
+
+
+def test_tenant_memberships_does_not_collide_with_tenent(svc: RouteService) -> None:
+    """/api/v1/tenant-memberships must route to IAM, not Tenent's
+    /api/v1/tenants prefix — this is exactly the collision the rename from
+    the README's literal /tenants/{id}/members path was made to avoid."""
+    route = svc.resolve("/api/v1/tenant-memberships/550e8400-e29b-41d4-a716-446655440000/members")
+    assert route.upstream == UpstreamService.IAM
+
+
+def test_resolve_by_upstream_iam_returns_seven_routes(svc: RouteService) -> None:
+    routes = svc.resolve_by_upstream(UpstreamService.IAM)
+    assert len(routes) == 7
+    prefixes = {r.prefix for r in routes}
+    assert prefixes == {
+        "/api/v1/users",
+        "/api/v1/roles",
+        "/api/v1/permissions",
+        "/api/v1/groups",
+        "/api/v1/tenant-memberships",
+        "/api/v1/entitlements",
+        "/api/v1/access-reviews",
+    }
+    assert len({r.base_url for r in routes}) == 1

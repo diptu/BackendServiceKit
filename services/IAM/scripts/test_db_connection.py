@@ -14,9 +14,10 @@ from __future__ import annotations
 
 import asyncio
 
-from app.core.config import settings
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
+
+from app.core.config import settings
 
 
 async def test_database_connection() -> None:

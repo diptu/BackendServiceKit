@@ -4,7 +4,7 @@ groups:
   - name: nutratenant.api
     rules:
       - alert: ServiceDown
-        expr: up{job=~"api-gateway|tenent|kong"} == 0
+        expr: up{job=~"api-gateway|tenent|kong|iam"} == 0
         for: 2m
         labels:
           severity: critical

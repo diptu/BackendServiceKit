@@ -175,11 +175,12 @@ async def test_list_plugins_returns_list() -> None:
 async def test_sync_routes_success() -> None:
     svc = _make_service()
     result = await svc.sync_routes()
-    # 12 routes: /api/v1/tenants, /api/v1/lifecycle, /api/v1/isolation,
+    # 19 routes: /api/v1/tenants, /api/v1/lifecycle, /api/v1/isolation,
     # /api/v1/provisioning, plus the merged ObservilityManagement service's
     # seven prefixes (logs/traces/metrics/monitoring/alerts/health/observability),
-    # plus /api/v1/organizations
-    assert len(result.synced) == 12
+    # plus /api/v1/organizations, plus IAM's seven prefixes (users/roles/
+    # permissions/groups/tenant-memberships/entitlements/access-reviews)
+    assert len(result.synced) == 19
     assert len(result.failed) == 0
     assert len(result.skipped) == 0
     assert set(result.synced) == {
@@ -195,6 +196,13 @@ async def test_sync_routes_success() -> None:
         "/api/v1/health",
         "/api/v1/observability",
         "/api/v1/organizations",
+        "/api/v1/users",
+        "/api/v1/roles",
+        "/api/v1/permissions",
+        "/api/v1/groups",
+        "/api/v1/tenant-memberships",
+        "/api/v1/entitlements",
+        "/api/v1/access-reviews",
     }
 
 
@@ -214,7 +222,7 @@ async def test_sync_routes_service_failure_marks_failed() -> None:
 async def test_sync_routes_admin_unreachable_marks_failed() -> None:
     svc = _make_service(_unreachable_handler)
     result = await svc.sync_routes()
-    assert len(result.failed) == 12
+    assert len(result.failed) == 19
     assert len(result.synced) == 0
 
 
@@ -222,7 +230,7 @@ async def test_sync_routes_total_matches() -> None:
     svc = _make_service()
     result = await svc.sync_routes()
     assert result.total == len(result.synced) + len(result.skipped) + len(result.failed)
-    assert result.total == 12
+    assert result.total == 19
 
 
 async def test_sync_result_is_kong_sync_result_instance() -> None:

@@ -129,6 +129,66 @@ def _build_registry() -> list[Route]:
             cacheable_methods=frozenset(),
             cache_ttl=0,
         ),
+        # Seven prefixes, one upstream — IAM. Covers /api/v1/users/{id}/roles
+        # and /api/v1/users/{id}/attributes too (both start with
+        # /api/v1/users/, so the single "/api/v1/users" prefix already
+        # matches them — no separate route needed). Not cacheable, same
+        # reasoning as OrganizationManagement: no cache-invalidation
+        # publisher wired up yet.
+        Route(
+            prefix="/api/v1/users",
+            upstream=UpstreamService.IAM,
+            base_url=settings.iam_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            prefix="/api/v1/roles",
+            upstream=UpstreamService.IAM,
+            base_url=settings.iam_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            prefix="/api/v1/permissions",
+            upstream=UpstreamService.IAM,
+            base_url=settings.iam_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            prefix="/api/v1/groups",
+            upstream=UpstreamService.IAM,
+            base_url=settings.iam_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            # Named "tenant-memberships", not "tenants" — IAM's own
+            # /api/v1/tenants/{tenant_id}/members would collide with
+            # Tenent's existing "/api/v1/tenants" prefix above (this
+            # registry does plain string-prefix matching, no path
+            # templating). See services/IAM/TODO.md.
+            prefix="/api/v1/tenant-memberships",
+            upstream=UpstreamService.IAM,
+            base_url=settings.iam_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            prefix="/api/v1/entitlements",
+            upstream=UpstreamService.IAM,
+            base_url=settings.iam_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            prefix="/api/v1/access-reviews",
+            upstream=UpstreamService.IAM,
+            base_url=settings.iam_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
     ]
 
 

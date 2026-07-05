@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from sqlalchemy.orm import DeclarativeBase
+from datetime import datetime
+
+from sqlalchemy import DateTime, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 _NAMING_CONVENTION = {
     "ix": "ix_%(column_0_label)s",
@@ -20,3 +23,19 @@ class Base(DeclarativeBase):
 
 
 Base.metadata.naming_convention = _NAMING_CONVENTION
+
+
+class TimestampMixin:
+    """Mixin that adds server-managed created_at / updated_at columns."""
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )

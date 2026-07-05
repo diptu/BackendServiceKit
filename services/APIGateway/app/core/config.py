@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     tenant_provisioning_base_url: str = "http://localhost:8003"
     observability_management_base_url: str = "http://localhost:8020"
     organization_management_base_url: str = "http://localhost:8021"
+    iam_base_url: str = "http://localhost:8022"
     redis_tenent_cache_ttl: int = 300        # 5 min: tenant + lifecycle GET responses
     redis_isolation_cache_ttl: int = 60      # 1 min: isolation decision responses
     redis_provisioning_cache_ttl: int = 30

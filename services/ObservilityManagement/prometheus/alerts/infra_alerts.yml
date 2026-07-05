@@ -47,7 +47,7 @@ groups:
           severity: warning
         annotations:
           summary: "OTel Collector high memory usage"
-          description: "OTel Collector RSS memory is {{ $value | humanizeBytes }}. Consider reducing batch sizes."
+          description: "OTel Collector RSS memory is {{ $value | humanize1024 }}B. Consider reducing batch sizes."
 
       - alert: PrometheusTargetDown
         expr: up == 0

@@ -67,6 +67,13 @@ scrape_configs:
           - tenent:8000
     metrics_path: /metrics
 
+  # IAM service direct scrape
+  - job_name: iam
+    static_configs:
+      - targets:
+          - iam:8000
+    metrics_path: /metrics
+
   # ObservilityManagement's own self-instrumentation — one job replaces
   # what would have been seven separate scrape targets (Logging,
   # DistributedTracing, MetricsCollection, Monitoring, Alerting,

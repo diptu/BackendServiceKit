@@ -29,11 +29,24 @@ processors:
           - delete_key(attributes, "http.response.header.set-cookie")
           - delete_key(attributes, "http.request.header.x-api-key")
 
-  # Add deployment environment resource attribute
+  # Add deployment environment resource attribute, plus the loki.*.labels
+  # hint attributes the loki exporter reads to pick which resource/log
+  # attributes become Loki stream labels (the exporter's own top-level
+  # `labels:` config key was removed in this collector version — v0.105.0
+  # only supports these hint-attribute names, set via a processor).
   resource:
     attributes:
       - key: deployment.environment
         value: development
+        action: upsert
+      - key: loki.resource.labels
+        value: "service.name, deployment.environment"
+        action: upsert
+
+  attributes/loki_labels:
+    actions:
+      - key: loki.attribute.labels
+        value: "level"
         action: upsert
 
 exporters:
@@ -54,18 +67,15 @@ exporters:
       initial_interval: 5s
       max_interval: 30s
 
-  # Forward logs to Loki
+  # Forward logs to Loki. Which resource/log attributes become Loki stream
+  # labels is controlled by the loki.resource.labels / loki.attribute.labels
+  # hint attributes set by the resource / attributes/loki_labels processors
+  # above, not by a static config here (removed in this collector version).
   loki:
     endpoint: http://loki:3100/loki/api/v1/push
     default_labels_enabled:
       exporter: false
       job: true
-    labels:
-      resource:
-        service.name: "service"
-        deployment.environment: "env"
-      attributes:
-        level: ""
 
   # debug:
   #   verbosity: detailed
@@ -93,7 +103,7 @@ service:
 
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, batch, resource]
+      processors: [memory_limiter, batch, resource, attributes/loki_labels]
       exporters: [loki]
 
   telemetry:

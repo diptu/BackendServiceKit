@@ -329,6 +329,37 @@ services:
       start_period: 30s
       retries: 3
 
+  iam:
+    container_name: backendservicekit-iam
+    build:
+      context: ./services/IAM
+      dockerfile: Dockerfile
+    ports:
+      - "8022:8000"
+    env_file:
+      - ./services/IAM/.env.example
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_identity
+      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8080"]'
+      OTEL_SERVICE_NAME: nutratenant-iam
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      ENABLE_TRACING: "true"
+      ENABLE_METRICS: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
   # ── Kong: DB-less declarative edge gateway ─────────────────────────────────
   # NOTE: Kong Admin API runs on 8001, which conflicts with tenant-management.
   #       Stop tenant-management before starting Kong in the same environment.
@@ -391,6 +422,7 @@ services:
       TENANT_PROVISIONING_BASE_URL: http://tenant-provisioning:8000
       OBSERVABILITY_MANAGEMENT_BASE_URL: http://observability-management:8000
       ORGANIZATION_MANAGEMENT_BASE_URL: http://organization-management:8000
+      IAM_BASE_URL: http://iam:8000
       KONG_ADMIN_URL: http://kong:8001
       CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8005","http://localhost:8003"]'
       OTEL_SERVICE_NAME: nutratenant-api-gateway
@@ -408,6 +440,8 @@ services:
       tenant-provisioning:
         condition: service_healthy
       organization-management:
+        condition: service_healthy
+      iam:
         condition: service_healthy
     networks:
       - backend

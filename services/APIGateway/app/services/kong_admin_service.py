@@ -28,6 +28,13 @@ KONG_ROUTE_PREFIX_MAP: dict[str, str] = {
     "/api/v1/health": "nutratenant-observability-management",
     "/api/v1/observability": "nutratenant-observability-management",
     "/api/v1/organizations": "nutratenant-organization-management",
+    "/api/v1/users": "nutratenant-iam",
+    "/api/v1/roles": "nutratenant-iam",
+    "/api/v1/permissions": "nutratenant-iam",
+    "/api/v1/groups": "nutratenant-iam",
+    "/api/v1/tenant-memberships": "nutratenant-iam",
+    "/api/v1/entitlements": "nutratenant-iam",
+    "/api/v1/access-reviews": "nutratenant-iam",
     "/api/v1/gateway": "nutratenant-api-gateway",
 }
 

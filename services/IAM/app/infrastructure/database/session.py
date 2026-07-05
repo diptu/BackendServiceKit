@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from app.infrastructure.database.engine import engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from app.infrastructure.database.engine import engine
 
 SessionLocal = async_sessionmaker(
     bind=engine,
