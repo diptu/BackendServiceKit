@@ -14,6 +14,7 @@ from fastapi import APIRouter, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies import DbDep
+from app.domain.enums import TenantLifecycleStatus
 from app.schemas.lifecycle import (
     LifecycleEventResponse,
     LifecycleHistoryResponse,
@@ -170,7 +171,7 @@ async def get_history(
     page = await svc.get_history(tenant_id, cursor=cursor, limit=limit)
     return LifecycleHistoryResponse(
         tenant_id=tenant_id,
-        current_status=state.current_status if state else None,
+        current_status=TenantLifecycleStatus(state.current_status) if state else None,
         events=[LifecycleEventResponse.model_validate(e) for e in page.items],
         total=page.total,
         next_cursor=page.next_cursor,

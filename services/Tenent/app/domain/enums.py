@@ -127,3 +127,16 @@ class AccessAction(StrEnum):
     WRITE = "write"
     DELETE = "delete"
     ADMIN = "admin"
+
+
+# ---------------------------------------------------------------------------
+# Control Plane enums (Siloed multi-tenancy — see TODO.md)
+# ---------------------------------------------------------------------------
+
+
+class TenantConnectionStatus(StrEnum):
+    """Lifecycle of a tenant's database home in the Control Plane registry."""
+
+    PROVISIONING = "provisioning"  # database being created/migrated
+    ACTIVE = "active"  # ready to route traffic to
+    DISABLED = "disabled"  # offboarded/suspended — must not be routed to

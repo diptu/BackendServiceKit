@@ -47,12 +47,12 @@ class PermissionRepository(BaseRepository[Permission]):
         self,
         permission_id: UUID,
         *,
-        tenant_id: UUID | None = None,
+        tenant_id: UUID,
         include_deleted: bool = False,
     ) -> Permission | None:
-        stmt = select(Permission).where(Permission.id == permission_id)
-        if tenant_id is not None:
-            stmt = stmt.where(Permission.tenant_id == tenant_id)
+        stmt = select(Permission).where(
+            Permission.id == permission_id, Permission.tenant_id == tenant_id
+        )
         if not include_deleted:
             stmt = stmt.where(Permission.deleted_at.is_(None))
         result = await self._session.execute(stmt)

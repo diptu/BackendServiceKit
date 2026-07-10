@@ -35,11 +35,11 @@ class AccessReviewRepository(BaseRepository[AccessReview]):
         return access_review
 
     async def get_by_id(
-        self, access_review_id: UUID, *, tenant_id: UUID | None = None
+        self, access_review_id: UUID, *, tenant_id: UUID
     ) -> AccessReview | None:
-        stmt = select(AccessReview).where(AccessReview.id == access_review_id)
-        if tenant_id is not None:
-            stmt = stmt.where(AccessReview.tenant_id == tenant_id)
+        stmt = select(AccessReview).where(
+            AccessReview.id == access_review_id, AccessReview.tenant_id == tenant_id
+        )
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 

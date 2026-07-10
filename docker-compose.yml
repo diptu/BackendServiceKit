@@ -1,11 +1,15 @@
 # NutraTenant — local development stack
 #
 # Port layout (Kong-enabled stack):
-#   8000  Kong proxy (public edge)          | 8001  Kong Admin API (conflicts with TM — stop TM when running Kong)
-#   8080  FastAPI APIGateway (internal)     | 8005  Tenent combined service (TM+TL+TI)
-#   8003  TenantProvisioning               | 8001  TenantManagement (legacy, conflicts with Kong Admin)
-#   8002  TenantLifecycle (legacy)          | 8004  TenantIsolation (legacy)
+#   8000  Kong proxy (public edge)          | 8001  Kong Admin API
+#   8080  FastAPI APIGateway (internal)     | 8005  Tenent (combined TM+TL+TI)
 #   5433  Postgres  |  6379  Redis  |  5672/15672  RabbitMQ
+#
+# TenantManagement / TenantLifecycle / TenantIsolation were merged into
+# Tenent (see services/Tenent/TODO.md). TenantProvisioning's source
+# directory has been removed from the repo entirely — Tenent's
+# TenantProvisioningClient and APIGateway's /api/v1/provisioning/** proxy
+# route still reference it; neither has a container to talk to here.
 
 networks:
   backend:
@@ -95,166 +99,6 @@ services:
   # APPLICATION SERVICES
   # ──────────────────────────────────────────────────────────────────
 
-  tenant-management:
-    container_name: backendservicekit-tenantmanagement
-    build:
-      context: ./services/TenantManagement
-      dockerfile: Dockerfile
-    ports:
-      - "8001:8000"
-    env_file:
-      - ./services/TenantManagement/.env
-    environment:
-      ENVIRONMENT: development
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_tenant
-      DATABASE_SSL: "false"
-      REDIS_URL: redis://redis:6379/1
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8002"]'
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - backend
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
-      interval: 30s
-      timeout: 5s
-      start_period: 30s
-      retries: 3
-
-  tenant-lifecycle:
-    container_name: backendservicekit-tenantlifecycle
-    build:
-      context: ./services/TenantLifecycle
-      dockerfile: Dockerfile
-    ports:
-      - "8002:8000"
-    env_file:
-      - ./services/TenantLifecycle/.env
-    environment:
-      ENVIRONMENT: development
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_lifecycle
-      DATABASE_SSL: "false"
-      REDIS_URL: redis://redis:6379/2
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      TENANT_MANAGEMENT_BASE_URL: http://tenant-management:8000
-      TENANT_PROVISIONING_BASE_URL: http://tenant-provisioning:8000
-      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8001","http://localhost:8003"]'
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      tenant-management:
-        condition: service_healthy
-    networks:
-      - backend
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
-      interval: 30s
-      timeout: 5s
-      start_period: 30s
-      retries: 3
-
-  tenant-provisioning:
-    container_name: backendservicekit-tenantprovisioning
-    build:
-      context: ./services/TenantProvisioning
-      dockerfile: Dockerfile
-    ports:
-      - "8003:8000"
-    env_file:
-      - ./services/TenantProvisioning/.env.example
-    environment:
-      ENVIRONMENT: development
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_provisioning
-      DATABASE_SSL: "false"
-      REDIS_URL: redis://redis:6379/4
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672/
-      CELERY_RESULT_BACKEND: redis://redis:6379/6
-      TENANT_LIFECYCLE_BASE_URL: http://tenant-lifecycle:8000
-      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8001","http://localhost:8002"]'
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      tenant-lifecycle:
-        condition: service_healthy
-    networks:
-      - backend
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
-      interval: 30s
-      timeout: 5s
-      start_period: 30s
-      retries: 3
-
-  tenant-provisioning-worker:
-    container_name: backendservicekit-tenantprovisioning-worker
-    build:
-      context: ./services/TenantProvisioning
-      dockerfile: Dockerfile
-    command: ["celery", "-A", "app.tasks.worker.celery_app", "worker",
-              "--loglevel=info", "--concurrency=4", "--queues=celery"]
-    env_file:
-      - ./services/TenantProvisioning/.env.example
-    environment:
-      ENVIRONMENT: development
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_provisioning
-      DATABASE_SSL: "false"
-      REDIS_URL: redis://redis:6379/4
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672/
-      CELERY_RESULT_BACKEND: redis://redis:6379/6
-      TENANT_LIFECYCLE_BASE_URL: http://tenant-lifecycle:8000
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    networks:
-      - backend
-    restart: unless-stopped
-
-  tenant-provisioning-flower:
-    container_name: backendservicekit-tenantprovisioning-flower
-    build:
-      context: ./services/TenantProvisioning
-      dockerfile: Dockerfile
-    command: ["celery", "-A", "app.tasks.worker.celery_app", "flower",
-              "--port=5555", "--broker=amqp://guest:guest@rabbitmq:5672/"]
-    ports:
-      - "5556:5555"
-    environment:
-      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672/
-      CELERY_RESULT_BACKEND: redis://redis:6379/6
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - backend
-    restart: unless-stopped
-    profiles:
-      - monitoring
-
   # ── Tenent: combined TenantManagement + TenantLifecycle + TenantIsolation ──
 
   tenent:
@@ -272,6 +116,12 @@ services:
       DATABASE_SSL: "false"
       REDIS_URL: redis://redis:6379/7
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      # TenantProvisioning's own container was removed from this file (its
+      # source directory no longer exists in the repo — see docker-compose
+      # cleanup notes). This URL is left pointing at a container that won't
+      # start; TenantProvisioningClient's fire-and-log call will fail
+      # silently rather than block tenant provisioning. Restore the service
+      # or remove the client call — flagged, not fixed, here.
       TENANT_PROVISIONING_BASE_URL: http://tenant-provisioning:8000
       CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000"]'
       OTEL_SERVICE_NAME: nutratenant-tenent
@@ -360,22 +210,22 @@ services:
       start_period: 30s
       retries: 3
 
-  user-management:
-    container_name: backendservicekit-user-management
+  user:
+    container_name: backendservicekit-user
     build:
-      context: ./services/UserManagement
+      context: ./services/User
       dockerfile: Dockerfile
     ports:
       - "8023:8000"
     env_file:
-      - ./services/UserManagement/.env.example
+      - ./services/User/.env.example
     environment:
       ENVIRONMENT: development
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_user
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       RABBITMQ_EXCHANGE: identity.events
       CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8080"]'
-      OTEL_SERVICE_NAME: nutratenant-user-management
+      OTEL_SERVICE_NAME: nutratenant-user
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       ENABLE_TRACING: "true"
@@ -395,63 +245,31 @@ services:
       start_period: 30s
       retries: 3
 
-  user-lifecycle-management:
-    container_name: backendservicekit-user-lifecycle-management
+  authentication:
+    container_name: backendservicekit-authentication
     build:
-      context: ./services/UserLifecycleManagement
+      context: ./services/Authentication
       dockerfile: Dockerfile
     ports:
       - "8024:8000"
     env_file:
-      - ./services/UserLifecycleManagement/.env.example
+      - ./services/Authentication/.env.example
     environment:
       ENVIRONMENT: development
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_user_lifecycle
-      USER_MANAGEMENT_BASE_URL: http://user-management:8000
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_authentication
+      # SECRET_KEY/JWT_ALGORITHM/JWT_ISSUER must match APIGateway's own
+      # values exactly — the gateway verifies these tokens locally with the
+      # same shared secret rather than calling back to this service (see
+      # services/APIGateway/app/services/token_verifier.py).
+      SECRET_KEY: CHANGE_ME
       CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8080"]'
-      OTEL_SERVICE_NAME: nutratenant-user-lifecycle-management
+      OTEL_SERVICE_NAME: nutratenant-authentication
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       ENABLE_TRACING: "true"
       ENABLE_METRICS: "true"
     depends_on:
       postgres:
-        condition: service_healthy
-      user-management:
-        condition: service_healthy
-    networks:
-      - backend
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
-      interval: 30s
-      timeout: 5s
-      start_period: 30s
-      retries: 3
-
-  user-profile-management:
-    container_name: backendservicekit-user-profile-management
-    build:
-      context: ./services/UserProfileManagement
-      dockerfile: Dockerfile
-    ports:
-      - "8025:8000"
-    env_file:
-      - ./services/UserProfileManagement/.env.example
-    environment:
-      ENVIRONMENT: development
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_user_profile
-      USER_MANAGEMENT_BASE_URL: http://user-management:8000
-      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8080"]'
-      OTEL_SERVICE_NAME: nutratenant-user-profile-management
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
-      ENABLE_TRACING: "true"
-      ENABLE_METRICS: "true"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      user-management:
         condition: service_healthy
     networks:
       - backend
@@ -464,8 +282,6 @@ services:
       retries: 3
 
   # ── Kong: DB-less declarative edge gateway ─────────────────────────────────
-  # NOTE: Kong Admin API runs on 8001, which conflicts with tenant-management.
-  #       Stop tenant-management before starting Kong in the same environment.
 
   kong:
     container_name: backendservicekit-kong
@@ -491,8 +307,6 @@ services:
       - backend
     depends_on:
       tenent:
-        condition: service_healthy
-      tenant-provisioning:
         condition: service_healthy
       api-gateway:
         condition: service_healthy
@@ -522,10 +336,24 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/5
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       TENENT_BASE_URL: http://tenent:8000
+      # See the top-of-file note: TenantProvisioning has no container here
+      # anymore. Left pointing at a name Compose won't resolve so the proxy
+      # route fails loudly (connection error) rather than silently.
       TENANT_PROVISIONING_BASE_URL: http://tenant-provisioning:8000
       OBSERVABILITY_MANAGEMENT_BASE_URL: http://observability-management:8000
       ORGANIZATION_MANAGEMENT_BASE_URL: http://organization-management:8000
       IAM_BASE_URL: http://iam:8000
+      # Pre-existing gap fixed alongside AUTHENTICATION_BASE_URL below: this
+      # container-network hostname was never wired here even though the
+      # `user` service (and its config default of localhost:8023) has
+      # existed since the User merge — the gateway would have tried to
+      # reach User on its own localhost inside this container.
+      USER_BASE_URL: http://user:8000
+      AUTHENTICATION_BASE_URL: http://authentication:8000
+      # Must match Authentication's own SECRET_KEY/JWT_ALGORITHM/JWT_ISSUER
+      # exactly — this is the shared-secret verification side of the
+      # gateway auth gate (app/services/token_verifier.py).
+      SECRET_KEY: CHANGE_ME
       KONG_ADMIN_URL: http://kong:8001
       CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8005","http://localhost:8003"]'
       OTEL_SERVICE_NAME: nutratenant-api-gateway
@@ -540,11 +368,13 @@ services:
         condition: service_healthy
       tenent:
         condition: service_healthy
-      tenant-provisioning:
-        condition: service_healthy
       organization-management:
         condition: service_healthy
       iam:
+        condition: service_healthy
+      user:
+        condition: service_healthy
+      authentication:
         condition: service_healthy
     networks:
       - backend
@@ -605,55 +435,6 @@ services:
       start_period: 15s
       retries: 3
 
-  tenant-management-docs:
-    container_name: backendservicekit-tenantmanagement-docs
-    build:
-      context: ./services/TenantManagement
-      dockerfile: Dockerfile.docs
-      args:
-        SCOPE: public
-    ports:
-      - "8080:80"
-    networks:
-      - backend
-    restart: unless-stopped
-    profiles:
-      - docs
-
-  tenant-isolation:
-    container_name: backendservicekit-tenantisolation
-    build:
-      context: ./services/TenantIsolation
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8000"
-    env_file:
-      - ./services/TenantIsolation/.env.example
-    environment:
-      ENVIRONMENT: development
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nutratenant_isolation
-      DATABASE_SSL: "false"
-      REDIS_URL: redis://redis:6379/5
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      TENANT_MANAGEMENT_BASE_URL: http://tenant-management:8000
-      CORS_ALLOW_ORIGINS: '["http://localhost:3000","http://localhost:8000","http://localhost:8001","http://localhost:8002","http://localhost:8003"]'
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - backend
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
-      interval: 30s
-      timeout: 5s
-      start_period: 30s
-      retries: 3
-
   api-gateway-worker:
     container_name: backendservicekit-apigateway-worker
     build:
@@ -670,6 +451,7 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/5
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       TENENT_BASE_URL: http://tenent:8000
+      # See top-of-file note: no TenantProvisioning container exists here.
       TENANT_PROVISIONING_BASE_URL: http://tenant-provisioning:8000
     depends_on:
       rabbitmq:

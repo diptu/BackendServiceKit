@@ -63,15 +63,50 @@ async def test_policy_get_update(client: AsyncClient) -> None:
     )
     policy_id = r.json()["id"]
 
-    r2 = await client.get(f"/api/v1/isolation/policies/{policy_id}")
+    r2 = await client.get(
+        f"/api/v1/isolation/policies/{policy_id}?tenant_id={tenant_id}"
+    )
     assert r2.status_code == 200
 
     r3 = await client.patch(
-        f"/api/v1/isolation/policies/{policy_id}",
+        f"/api/v1/isolation/policies/{policy_id}?tenant_id={tenant_id}",
         json={"name": "updated-name"},
     )
     assert r3.status_code == 200
     assert r3.json()["name"] == "updated-name"
+
+
+@pytest.mark.asyncio
+async def test_policy_get_cross_tenant_404s(client: AsyncClient) -> None:
+    tenant_id = str(uuid.uuid4())
+    r = await client.post(
+        f"/api/v1/isolation/policies?tenant_id={tenant_id}",
+        json={"name": "owner-only-policy"},
+    )
+    policy_id = r.json()["id"]
+
+    other_tenant_id = str(uuid.uuid4())
+    r2 = await client.get(
+        f"/api/v1/isolation/policies/{policy_id}?tenant_id={other_tenant_id}"
+    )
+    assert r2.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_policy_update_cross_tenant_404s(client: AsyncClient) -> None:
+    tenant_id = str(uuid.uuid4())
+    r = await client.post(
+        f"/api/v1/isolation/policies?tenant_id={tenant_id}",
+        json={"name": "owner-only-policy"},
+    )
+    policy_id = r.json()["id"]
+
+    other_tenant_id = str(uuid.uuid4())
+    r2 = await client.patch(
+        f"/api/v1/isolation/policies/{policy_id}?tenant_id={other_tenant_id}",
+        json={"allow_cross_tenant_read": True},
+    )
+    assert r2.status_code == 404
 
 
 @pytest.mark.asyncio

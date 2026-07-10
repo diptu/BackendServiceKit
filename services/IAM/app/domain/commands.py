@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
-from app.domain.enums import AttributeValueType
+from app.domain.enums import AttributeValueType, PolicyEffect
 
 
 @dataclass
@@ -89,3 +89,28 @@ class UpdateAccessReviewCmd:
     status: str
     decision_notes: str | None = None
     reviewer_id: UUID | None = None
+
+
+@dataclass
+class CreatePolicyCmd:
+    tenant_id: UUID
+    name: str
+    effect: PolicyEffect
+    resource_type: str
+    action: str
+    description: str | None = None
+    conditions: dict[str, object] | None = None
+    priority: int = 0
+    is_active: bool = True
+
+
+@dataclass
+class UpdatePolicyCmd:
+    name: str | None = None
+    description: str | None = None
+    effect: PolicyEffect | None = None
+    resource_type: str | None = None
+    action: str | None = None
+    conditions: dict[str, object] | None = None
+    priority: int | None = None
+    is_active: bool | None = None

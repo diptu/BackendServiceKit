@@ -41,3 +41,10 @@ testpaths = ["tests"]
 python_version = "3.11"
 strict = true
 exclude = "^(alembic/|tests/fixtures/)"
+
+# shared/* lives at the repo root and is added to the path at runtime/test
+# time (pythonpath = ["..", "../.."]); it is type-checked by its own tooling,
+# not from inside each service, so silence "module not found" here.
+[[tool.mypy.overrides]]
+module = "shared.*"
+ignore_missing_imports = true

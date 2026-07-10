@@ -45,6 +45,26 @@ class AccessReviewStatus(StrEnum):
     REVOKED = "revoked"
 
 
+class PolicyEffect(StrEnum):
+    """What an AbacPolicy does when its conditions match."""
+
+    ALLOW = "allow"
+    DENY = "deny"
+
+
+class ConditionOperator(StrEnum):
+    """Comparison operators supported by an AbacPolicy condition leaf."""
+
+    EQ = "eq"
+    NE = "ne"
+    IN = "in"
+    GT = "gt"
+    GTE = "gte"
+    LT = "lt"
+    LTE = "lte"
+    EXISTS = "exists"
+
+
 class AuditEventType(StrEnum):
     """Every authorization-changing operation this service audits.
 

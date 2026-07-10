@@ -12,6 +12,7 @@ from app.api.v1.groups_router import router as groups_router
 from app.api.v1.health_router import router as health_router
 from app.api.v1.memberships_router import router as memberships_router
 from app.api.v1.permissions_router import router as permissions_router
+from app.api.v1.policies_router import router as policies_router
 from app.api.v1.roles_router import router as roles_router
 from app.api.v1.users_router import router as users_router
 
@@ -31,5 +32,6 @@ _v1.include_router(attributes_router)
 _v1.include_router(entitlements_router)
 _v1.include_router(access_reviews_router)
 _v1.include_router(audit_events_router)
+_v1.include_router(policies_router)
 
 api_router.include_router(_v1)

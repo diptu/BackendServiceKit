@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 TAGS_METADATA = [
     {
         "name": "Health",
@@ -40,7 +42,7 @@ TAGS_METADATA = [
     },
 ]
 
-RESPONSES_PROXY = {
+RESPONSES_PROXY: dict[int | str, dict[str, Any]] = {
     502: {"description": "Upstream service returned an unexpected error."},
     503: {"description": "Upstream service is unavailable."},
     504: {"description": "Upstream service did not respond within the timeout."},

@@ -19,9 +19,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.dependencies import get_db
 from app.models.group import Group
 from app.models.permission import Permission
+from app.models.policy import AbacPolicy
 from app.models.role import Role
 from app.repositories.group import GroupRepository
 from app.repositories.permission import PermissionRepository
+from app.repositories.policy import PolicyRepository
 from app.repositories.role import RoleRepository
 from app.services.access_review_service import AccessReviewService
 from app.services.attribute_service import AttributeService
@@ -30,6 +32,8 @@ from app.services.entitlement_service import EntitlementService
 from app.services.group_service import GroupService
 from app.services.membership_service import MembershipService
 from app.services.permission_service import PermissionService
+from app.services.policy_evaluation_service import PolicyEvaluationService
+from app.services.policy_service import PolicyService
 from app.services.role_service import RoleService
 from app.services.user_service import UserService
 
@@ -97,6 +101,18 @@ async def get_audit_event_service(
     return AuditEventService(db)
 
 
+async def get_policy_service(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> PolicyService:
+    return PolicyService(db)
+
+
+async def get_policy_evaluation_service(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> PolicyEvaluationService:
+    return PolicyEvaluationService(db)
+
+
 # ---------------------------------------------------------------------------
 # Path-param resolution (404 dependencies)
 # ---------------------------------------------------------------------------
@@ -140,6 +156,18 @@ async def get_group_or_404(
     return group
 
 
+async def get_policy_or_404(
+    policy_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    tenant_id: Annotated[UUID, Depends(get_tenant_id)],
+) -> AbacPolicy:
+    repo = PolicyRepository(db)
+    policy = await repo.get_by_id(policy_id, tenant_id=tenant_id)
+    if policy is None:
+        raise HTTPException(status_code=404, detail=f"Policy {policy_id} not found.")
+    return policy
+
+
 # ---------------------------------------------------------------------------
 # Type aliases
 # ---------------------------------------------------------------------------
@@ -150,6 +178,7 @@ TenantIdDep = Annotated[UUID, Depends(get_tenant_id)]
 RoleDep = Annotated[Role, Depends(get_role_or_404)]
 PermissionDep = Annotated[Permission, Depends(get_permission_or_404)]
 GroupDep = Annotated[Group, Depends(get_group_or_404)]
+PolicyDep = Annotated[AbacPolicy, Depends(get_policy_or_404)]
 
 RoleServiceDep = Annotated[RoleService, Depends(get_role_service)]
 PermissionServiceDep = Annotated[PermissionService, Depends(get_permission_service)]
@@ -162,3 +191,7 @@ AccessReviewServiceDep = Annotated[
 ]
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 AuditEventServiceDep = Annotated[AuditEventService, Depends(get_audit_event_service)]
+PolicyServiceDep = Annotated[PolicyService, Depends(get_policy_service)]
+PolicyEvaluationServiceDep = Annotated[
+    PolicyEvaluationService, Depends(get_policy_evaluation_service)
+]

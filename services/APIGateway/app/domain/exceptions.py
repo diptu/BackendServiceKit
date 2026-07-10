@@ -27,3 +27,11 @@ class UpstreamUnavailableError(Exception):
         self.upstream = upstream
         self.detail = detail
         super().__init__(f"Upstream {upstream!r} is unavailable: {detail}")
+
+
+class GatewayTokenInvalidError(Exception):
+    """The Authorization: Bearer access token is missing, expired, or invalid."""
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(f"Access token is invalid: {reason}.")

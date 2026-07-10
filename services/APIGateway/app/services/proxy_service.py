@@ -8,11 +8,6 @@ import time
 import uuid
 from typing import Any
 
-_UUID_RE = re.compile(
-    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
-    re.IGNORECASE,
-)
-
 import httpx
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
@@ -38,6 +33,11 @@ from app.services.route_service import Route, RouteService
 
 logger = logging.getLogger(__name__)
 
+_UUID_RE = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+    re.IGNORECASE,
+)
+
 _ALL_UPSTREAM_NAMES = [u.value for u in UpstreamService]
 
 
@@ -52,7 +52,7 @@ class ProxyService:
         self,
         http_client: httpx.AsyncClient,
         cache: CacheService,
-        publisher: Any,          # RabbitMQPublisher | NullPublisher
+        publisher: Any,  # RabbitMQPublisher | NullPublisher
         route_service: RouteService,
     ) -> None:
         self._client = http_client
@@ -60,12 +60,23 @@ class ProxyService:
         self._publisher = publisher
         self._routes = route_service
 
-    async def forward(self, request: Request) -> Response:
+    async def forward(self, request: Request, *, verified_tenant_id: str | None = None) -> Response:
+        """`verified_tenant_id` is the tenant claim from a gateway-verified
+        access token (see app/services/token_verifier.py) — when present,
+        it is the *only* tenant_id trusted for both the cache key and the
+        header forwarded upstream, overriding whatever X-Tenant-ID the
+        client itself sent. Routes exempt from that verification (the
+        Authentication service's own pre-auth endpoints — see
+        proxy_router.py) fall back to the client-supplied header/path, same
+        as before; those endpoints don't grant access based on tenant_id
+        alone, so a forged one there isn't a privilege escalation."""
         request_id = request.headers.get(REQUEST_ID_HEADER) or str(uuid.uuid4())
         # Prefer the explicit header; fall back to the first UUID found in the path
         # so that write-triggered invalidation reaches keys cached without the header.
-        tenant_id = request.headers.get(TENANT_ID_HEADER) or self._extract_tenant_from_path(
-            request.url.path
+        tenant_id = (
+            verified_tenant_id
+            or request.headers.get(TENANT_ID_HEADER)
+            or self._extract_tenant_from_path(request.url.path)
         )
         path = request.url.path
         method = request.method.upper()
@@ -83,17 +94,21 @@ class ProxyService:
 
         # ── Cache lookup (GET only) ───────────────────────────────────────
         if method in CACHEABLE_METHODS:
-            cache_key = CacheService.build_key(
-                route.upstream.value, path, str(request.url.query)
-            )
+            cache_key = CacheService.build_key(route.upstream.value, path, str(request.url.query))
             raw, cache_result = await self._cache.get(cache_key)
             if raw is not None:
                 status_code, headers, body = CacheService.decode_response(raw)
                 headers[REQUEST_ID_HEADER] = request_id
                 headers["X-Cache"] = "HIT"
                 await self._emit_event(
-                    request_id, method, path, route, status_code,
-                    started, CacheResult.HIT, tenant_id,
+                    request_id,
+                    method,
+                    path,
+                    route,
+                    status_code,
+                    started,
+                    CacheResult.HIT,
+                    tenant_id,
                 )
                 return Response(content=body, status_code=status_code, headers=headers)
 
@@ -102,7 +117,7 @@ class ProxyService:
         if request.url.query:
             path_with_query = f"{path_with_query}?{request.url.query}"
         upstream_url = route.upstream_url(path_with_query)
-        forwarded_headers = self._build_upstream_headers(request, request_id)
+        forwarded_headers = self._build_upstream_headers(request, request_id, verified_tenant_id)
 
         try:
             body_bytes = await request.body()
@@ -120,14 +135,8 @@ class ProxyService:
 
         # ── Cache the response (GET + 2xx only) ───────────────────────────
         response_headers = self._build_response_headers(upstream_resp, request_id)
-        if (
-            method in CACHEABLE_METHODS
-            and upstream_resp.is_success
-            and self._cache.available
-        ):
-            cache_key = CacheService.build_key(
-                route.upstream.value, path, str(request.url.query)
-            )
+        if method in CACHEABLE_METHODS and upstream_resp.is_success and self._cache.available:
+            cache_key = CacheService.build_key(route.upstream.value, path, str(request.url.query))
             encoded = CacheService.encode_response(
                 upstream_resp.status_code,
                 dict(response_headers),
@@ -144,9 +153,7 @@ class ProxyService:
 
         # ── Cache invalidation on writes ──────────────────────────────────
         if method in WRITE_METHODS and upstream_resp.is_success and tenant_id:
-            deleted = await self._cache.invalidate_all_upstreams(
-                tenant_id, _ALL_UPSTREAM_NAMES
-            )
+            deleted = await self._cache.invalidate_all_upstreams(tenant_id, _ALL_UPSTREAM_NAMES)
             if deleted > 0:
                 await self._publisher.publish(
                     "cache.tenant.invalidated",
@@ -162,8 +169,14 @@ class ProxyService:
 
         # ── Emit gateway event ────────────────────────────────────────────
         await self._emit_event(
-            request_id, method, path, route, upstream_resp.status_code,
-            started, cache_result, tenant_id,
+            request_id,
+            method,
+            path,
+            route,
+            upstream_resp.status_code,
+            started,
+            cache_result,
+            tenant_id,
         )
 
         response_headers["X-Cache"] = "MISS" if method in CACHEABLE_METHODS else "BYPASS"
@@ -183,18 +196,33 @@ class ProxyService:
         match = _UUID_RE.search(path)
         return match.group() if match else None
 
-    def _build_upstream_headers(self, request: Request, request_id: str) -> dict[str, str]:
+    def _build_upstream_headers(
+        self, request: Request, request_id: str, verified_tenant_id: str | None
+    ) -> dict[str, str]:
         headers: dict[str, str] = {}
         for name, value in request.headers.items():
-            if name.lower() not in HOP_BY_HOP_HEADERS:
-                headers[name] = value
+            lower_name = name.lower()
+            if lower_name in HOP_BY_HOP_HEADERS:
+                continue
+            if verified_tenant_id is not None and lower_name == TENANT_ID_HEADER.lower():
+                # Drop the client-supplied value entirely — a dict keyed by
+                # header name is case-sensitive, so leaving this in and
+                # separately setting headers[TENANT_ID_HEADER] below would
+                # insert it as a *second*, differently-cased key, and both
+                # would be sent as separate header lines (httpx/ASGI treat
+                # header names case-insensitively and join same-name
+                # values with ", " — silently reintroducing the exact
+                # spoofing bug this override exists to close).
+                continue
+            headers[name] = value
         headers[REQUEST_ID_HEADER] = request_id
         headers[GATEWAY_HEADER] = settings.app_version
+        if verified_tenant_id is not None:
+            # Authoritative — replaces whatever X-Tenant-ID the client sent.
+            headers[TENANT_ID_HEADER] = verified_tenant_id
         return headers
 
-    def _build_response_headers(
-        self, resp: httpx.Response, request_id: str
-    ) -> dict[str, str]:
+    def _build_response_headers(self, resp: httpx.Response, request_id: str) -> dict[str, str]:
         headers: dict[str, str] = {}
         for name, value in resp.headers.items():
             if name.lower() not in HOP_BY_HOP_HEADERS:

@@ -14,11 +14,11 @@ from app.domain.exceptions import RouteNotFoundError
 class Route:
     """Describes how a URL prefix maps to an upstream service."""
 
-    prefix: str                          # e.g. "/api/v1/tenants"
+    prefix: str  # e.g. "/api/v1/tenants"
     upstream: UpstreamService
-    base_url: str                        # upstream origin, no trailing slash
+    base_url: str  # upstream origin, no trailing slash
     cacheable_methods: frozenset[str] = field(default_factory=lambda: CACHEABLE_METHODS)
-    cache_ttl: int = 300                 # seconds
+    cache_ttl: int = 300  # seconds
 
     def matches(self, path: str) -> bool:
         return path == self.prefix or path.startswith(self.prefix + "/")
@@ -129,30 +129,35 @@ def _build_registry() -> list[Route]:
             cacheable_methods=frozenset(),
             cache_ttl=0,
         ),
-        # /api/v1/users now points at UserManagement, not IAM — UserManagement
-        # is the authoritative user CRUD service (see
-        # services/UserManagement/TODO.md); IAM's own UserProjection was
+        # /api/v1/users points at User (the merged UserManagement +
+        # UserLifecycleManagement + UserProfileManagement service — see
+        # services/User/TODO.md), not IAM; IAM's own UserProjection was
         # always meant as an internal read-only cache, not the public users
         # API. IAM's attribute-assignment sub-resource was renamed from
         # /users/{id}/attributes to /user-attributes/{id} specifically to
         # avoid being swallowed by this prefix (plain string matching, no
         # path templating — see IAM's attributes_router.py). Not cacheable:
-        # no cache-invalidation publisher wired up yet.
+        # no cache-invalidation publisher wired up yet. Status-lifecycle
+        # transitions (lock/unlock/restore/onboard/offboard) live directly
+        # under /api/v1/users/{id}/... now too — merging the three services
+        # into one removed the reason a separate /api/v1/user-lifecycle
+        # prefix ever existed (it was purely to avoid two different
+        # upstream containers colliding at this gateway).
         Route(
             prefix="/api/v1/users",
-            upstream=UpstreamService.USER_MANAGEMENT,
-            base_url=settings.user_management_base_url,
+            upstream=UpstreamService.USER,
+            base_url=settings.user_base_url,
             cacheable_methods=frozenset(),
             cache_ttl=0,
         ),
         Route(
-            # UserManagement's platform-onboarding invitations — named
-            # "platform-invitations", not "invitations", to avoid colliding
-            # with OrganizationManagement's own "/api/v1/invitations"
-            # (different concept: org-level invites vs. platform onboarding).
+            # Platform onboarding invitations — named "platform-invitations",
+            # not "invitations", to avoid colliding with OrganizationManagement's
+            # own "/api/v1/invitations" (different concept: org-level invites
+            # vs. platform onboarding).
             prefix="/api/v1/platform-invitations",
-            upstream=UpstreamService.USER_MANAGEMENT,
-            base_url=settings.user_management_base_url,
+            upstream=UpstreamService.USER,
+            base_url=settings.user_base_url,
             cacheable_methods=frozenset(),
             cache_ttl=0,
         ),
@@ -170,7 +175,7 @@ def _build_registry() -> list[Route]:
             # /api/v1/users otherwise). This was a real, previously
             # undetected gap: roles_router.py defines this path inline
             # (no router-level prefix=), so it wasn't caught when
-            # /api/v1/users was first repointed to UserManagement.
+            # /api/v1/users was first repointed away from IAM.
             prefix="/api/v1/user-roles",
             upstream=UpstreamService.IAM,
             base_url=settings.iam_base_url,
@@ -178,22 +183,11 @@ def _build_registry() -> list[Route]:
             cache_ttl=0,
         ),
         Route(
-            # State-machine orchestration on top of UserManagement's
-            # identity record — locked/restore/onboard/offboard. Not
-            # /api/v1/users/{id}/... as its README literally shows, since
-            # /api/v1/users already points at UserManagement.
-            prefix="/api/v1/user-lifecycle",
-            upstream=UpstreamService.USER_LIFECYCLE_MANAGEMENT,
-            base_url=settings.user_lifecycle_management_base_url,
-            cacheable_methods=frozenset(),
-            cache_ttl=0,
-        ),
-        Route(
             # No collision to resolve here — /api/v1/profiles is a literal
             # prefix nothing else in this registry has claimed.
             prefix="/api/v1/profiles",
-            upstream=UpstreamService.USER_PROFILE_MANAGEMENT,
-            base_url=settings.user_profile_management_base_url,
+            upstream=UpstreamService.USER,
+            base_url=settings.user_base_url,
             cacheable_methods=frozenset(),
             cache_ttl=0,
         ),
@@ -241,6 +235,31 @@ def _build_registry() -> list[Route]:
             prefix="/api/v1/access-reviews",
             upstream=UpstreamService.IAM,
             base_url=settings.iam_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            prefix="/api/v1/policies",
+            upstream=UpstreamService.IAM,
+            base_url=settings.iam_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            # Not cacheable — an authorization decision must always be
+            # evaluated fresh against current attributes/policies.
+            prefix="/api/v1/authorization",
+            upstream=UpstreamService.IAM,
+            base_url=settings.iam_base_url,
+            cacheable_methods=frozenset(),
+            cache_ttl=0,
+        ),
+        Route(
+            # Never cacheable — credentials, tokens, and session state must
+            # never be served stale.
+            prefix="/api/v1/auth",
+            upstream=UpstreamService.AUTHENTICATION,
+            base_url=settings.authentication_base_url,
             cacheable_methods=frozenset(),
             cache_ttl=0,
         ),

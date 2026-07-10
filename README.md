@@ -15,9 +15,20 @@
 
 ## 🏗️ Core Roadmap & Services
 
+Seven services are implemented and independently tested (Python/FastAPI —
+run `make test SERVICE=<Name>` from the repo root, or see each service's
+own `TODO.md` for what was built and why). Everything else below that is
+still the original design-doc/roadmap vision.
+
 | Service | Status | Core Architecture Highlights |
 | :--- | :--- | :--- |
-| **🔐 IAM** | 🚧 Planned | OAuth2, RBAC, JWT, Service-to-service auth (**mTLS**) |
+| **🔐 IAM** | ✅ Active | RBAC, ABAC policy evaluation engine, groups, entitlements, access reviews |
+| **🔑 Authentication** | ✅ Active | JWT (HS256/RS256) access tokens, rotating/revocable refresh tokens, credential storage, account lockout, MFA (TOTP), OAuth 2.1 (auth-code + PKCE), OIDC SSO — WebAuthn/SAML not yet built |
+| **🚀 API Gateway** | ✅ Active | Reverse proxy, Redis cache, Kong integration, gateway-verified JWT auth boundary |
+| **🏢 Tenent** | ✅ Active | Merged Tenant Management + Lifecycle + Isolation |
+| **🏬 Organization Management** | ✅ Active | Org hierarchy, teams, invitations |
+| **👤 User** | ✅ Active | Merged User Management + Lifecycle + Profile |
+| **📡 Observability Management** | ✅ Active | Merged Logging/Tracing/Metrics/Monitoring/Alerting/Health |
 | **🔔 Notification** | 🚧 Planned | Event-driven Email, SMS, & Push notification workers |
 | **💳 Payment** | 🚧 Planned | Stripe/Idempotent billing & transaction pipelines |
 | **📂 File Storage** | 🚧 Planned | S3-compatible Object Storage & secure CDN streaming |
@@ -74,159 +85,113 @@ backend-service-kit/
 
 ---
 
+## 🏛️ Core Architectural Pillars *(Target)*
 
-## 📋 Planned Service List
+> [!NOTE]
+> **This describes the north-star multi-tenancy model — it is not yet
+> implemented.** The current build isolates tenants with **shared-schema**
+> multi-tenancy: every service owns a single database and scopes every query
+> by a required `tenant_id` column (e.g. the composite index `(tenant_id,
+> email)`), with the tenant identity resolved from a **gateway-verified JWT
+> claim** and forwarded as the `X-Tenant-ID` header — not from a subdomain.
+> The two pillars below are the direction the platform is designed to grow
+> toward, captured here so the target and the current state don't drift.
 
-1. Identity & Access Management (IAM) Service
-2. Authentication Service
-3. Authorization Service
-4. ABAC Policy Management Service
-5. ABAC Policy Evaluation Engine Service
-6. RBAC Management Service
-7. ReBAC Management Service
-8. User Management Service
-9. User Profile Service
-10. User Lifecycle Management Service
-11. Session Management Service
-12. Device Management Service
-13. API Key Management Service
-14. OAuth2/OpenID Connect Service
-15. Single Sign-On (SSO) Service
-16. SCIM Provisioning Service
-17. Multi-Factor Authentication (MFA) Service
-18. Password Management Service
-19. Tenant Management Service
-20. Tenant Provisioning Service
-21. Tenant Lifecycle Management Service
-22. Tenant Isolation Service          
-23. Organization Management Service
-24. Workspace Management Service
-25. Team Management Service
-26. Group Management Service
-27. Membership Management Service
-28. Invitation Management Service 
-29. Role Management Service
-30. Permission Management Service
-31. Resource Registry Service
-32. Resource Ownership Service
-33. Resource Sharing Service
-34. Relationship Graph Service
-35. Access Review Service
-36. Access Request Service
-37. Access Approval Workflow Service
-38. Entitlement Management Service
-39. Delegated Administration Service
-40. Just-In-Time Access Service
-41. Privileged Access Management (PAM) Service
-42. Subscription Management Service
-43. Plan Management Service
-44. Feature Management Service
-45. Feature Flag Service  
-46. Usage Metering Service
-47. Quota Management Service
-48. Billing Service
-49. Invoicing Service
-50. Payment Service 
-51. Tax Management Service
-52. Customer Account Service
-53. Customer Portal Service
-54. Partner Management Service
-55. White-Label Management Service
-56. Branding Management Service
-57. Domain Management Service
-58. Custom Domain Verification Service
-59. DNS Automation Service
-60. Email Service  <------
-61. SMS Service
-62. Push Notification Service
-63. Notification Service
-64. Communication Preference Service
-65. Template Management Service <------
-66. Audit Logging Service
-67. Compliance Logging Service
-68. Security Event Logging Service
-69. Activity Tracking Service
-70. Change History Service
-71. Monitoring Service
-72. Logging Service
-73. Distributed Tracing Service
-74. Metrics Collection Service
-75. Alerting Service
-76. Observability Service
-77. Health Check Service.  <------
-78. Incident Management Service
-79. Security Center Service
-80. Threat Detection Service
-81. Anomaly Detection Service
-82. Fraud Detection Service
-83. Vulnerability Management Service
-84. Security Policy Enforcement Service
-85. Compliance Management Service
-86. Consent Management Service
-87. Privacy Management Service
-88. Data Governance Service
-89. Data Classification Service
-90. Data Retention Service
-91. Data Residency Service
-92. Encryption & Key Management Service
-93. Secrets Management Service
-94. Configuration Management Service
-95. Service Discovery Service
-96. API Gateway Service
-97. Rate Limiting Service
-98. Webhook Management Service
-99. Event Bus Service
-100. Message Queue Service
-101. Workflow Orchestration Service
-102. Background Job Processing Service
-103. Scheduler Service
-104. Search Service
-105. Reporting Service
-106. Analytics Service
-107. Dashboard Service
-108. Data Export Service
-109. Data Import Service
-110. File Storage Service
-111. Object Storage Service
-112. Document Management Service
-113. Media Processing Service
-114. Backup Service
-115. Disaster Recovery Service
-116. Data Synchronization Service
-117. Integration Management Service
-118. Third-Party Connector Service
-119. Marketplace Service
-120. AI/ML Service
-121. Recommendation Service
-122. Knowledge Base Service
-123. Support Ticket Service
-124. Customer Success Service
-125. Product Announcement Service
-126. Onboarding Service
-127. Super Admin Service
-128. Platform Administration Service
-129. Infrastructure Management Service
-130. Resource Provisioning Service
-131. Cost Management Service
-132. FinOps Service
-133. Multi-Region Deployment Service
-134. Business Intelligence Service
-135. Customer Data Platform Service
-136. CRM Integration Service
-137. License Management Service
-138. Data Lifecycle Management Service
-139. Policy Simulation Service
-140. Policy Testing & Validation Service
-141. Authorization Decision Cache Service
-142. Attribute Management Service
-143. Attribute Synchronization Service
-144. Identity Federation Service
-145. External Identity Provider Integration Service
-146. Tenant Onboarding Automation Service
-147. Tenant Offboarding Service
-148. Tenant Migration Service
-149. Tenant Configuration Service
-150. Tenant Compliance Service
+### 1. Siloed Multi-tenancy (Data Layer)
+
+The **database-per-tenant** model. Unlike shared-schema multi-tenancy (where
+all tenants coexist in one table behind a `tenant_id` column — what this repo
+does today), this approach provides total logical separation.
+
+* **Pros:** Maximum security, simplified compliance (GDPR/HIPAA), and the
+  ability to restore a specific tenant's data without affecting others.
+* **Cons:** Higher infrastructure overhead and real complexity in managing
+  schema migrations across hundreds or thousands of databases.
+
+### 2. Subdomain Routing (Access Layer)
+
+Using subdomains (e.g. `meta.my-site.com`) as the primary tenant identifier —
+a standard pattern for a personalized, per-tenant experience.
+
+* **Mechanism:** A **Tenant Resolver** middleware extracts the subdomain from
+  the incoming request `Host` header, queries a central **Control Plane
+  Database** to resolve that subdomain to a specific database connection
+  string, and dynamically swaps the connection context for the duration of
+  the request.
+
+#### Conceptual Architecture
+
+```text
+  meta.my-site.com                 acme.my-site.com
+        │                                │
+        ▼                                ▼
+┌────────────────────────────────────────────────────┐
+│   🚀 API Gateway  +  Tenant Resolver middleware     │
+│   (extract subdomain from Host header)              │
+└───────────────────────┬────────────────────────────┘
+                        │  subdomain
+                        ▼
+              ┌───────────────────────┐
+              │  🗺️ Control Plane DB   │  subdomain → {host, port, creds}
+              └───────────┬───────────┘
+                        │  connection string
+                        ▼
+              ┌───────────────────────┐
+              │  🐘 PgBouncer (pool)   │
+              └───┬───────┬───────┬───┘
+                  ▼       ▼       ▼
+              ┌──────┐┌──────┐┌──────┐
+              │ DB:  ││ DB:  ││ DB:  │   one isolated database per tenant
+              │ meta ││ acme ││  …   │
+              └──────┘└──────┘└──────┘
+```
+
+#### Technical Considerations for Implementation
+
+To operate this at an enterprise level, engineers typically implement:
+
+* **The Control Plane:** A lightweight, central database mapping
+  subdomains/tenants to connection details (host, port, credentials).
+* **Connection Pooling Strategy:** Hundreds of open connections will exhaust
+  a database server's memory — front them with a specialized connection
+  proxy (**PgBouncer** for PostgreSQL) to pool connections efficiently.
+* **Migration Orchestrator:** Never run migrations by hand. Build an
+  automated "flight control" script that iterates the tenant database list
+  and applies DDL changes during deployments.
+* **Tenant Identity Context:** Ensure the auth layer (JWTs/session tokens)
+  encodes the `tenant_id`, so a user can't force-access another tenant's
+  subdomain by spoofing the URL. *(This one already holds today — the
+  gateway verifies the JWT and overrides any client-supplied `X-Tenant-ID`
+  with the verified claim.)*
+
+---
+
+
+## 📋 Service List — curated for Siloed Multi-tenancy
+
+The platform is scoped to **16 services** that together form the siloed
+(database-per-tenant) multi-tenant architecture (see "Core Architectural
+Pillars" above). Eight are implemented; the rest are the pieces that turn the
+opt-in siloing plumbing into a live database-per-tenant deployment.
+
+| # | Service | Status | Role in Siloed multi-tenancy |
+| :-- | :-- | :-- | :-- |
+| 1 | **IAM** | ✅ Active | RBAC + ABAC policy engine; per-tenant database in siloed mode |
+| 2 | **Authentication** | ✅ Active | Credentials, JWT (HS256/RS256), MFA, OAuth 2.1, OIDC SSO — siloed per tenant |
+| 3 | **User** | ✅ Active | Identity CRUD, profile, lifecycle — siloed per tenant |
+| 4 | **Session Management** | ✅ Active | Session/device tracking, force-logout — siloed per tenant |
+| 5 | **Tenent** (Mgmt + Lifecycle + Isolation + **Control Plane**) | ✅ Active | Owns the global tenant → database registry + subdomain map that makes siloing possible |
+| 6 | **Organization Management** | ✅ Active | Org/workspace/team hierarchy — siloed per tenant |
+| 7 | **API Gateway** (Tenant Resolver) | ✅ Active | Resolves subdomain → tenant, enforces the tenant boundary, forwards the authoritative `X-Tenant-ID` |
+| 8 | **Observability Management** | ✅ Active | Deliberate **exception** — telemetry stays pooled with a `tenant_id` label, *not* siloed |
+| 9 | **Tenant Provisioning** | 🚧 Planned | Physical `CREATE DATABASE` + run every service's migrations when a tenant is provisioned |
+| 10 | **Secrets & Key Management** | 🚧 Planned | Holds the per-tenant DB credentials the Control Plane references (Vault/KMS) |
+| 11 | **Migration Orchestrator** | 🚧 Planned | Applies DDL across all N tenant databases on deploy (per-service `tenant_migrations.py` today) |
+| 12 | **Notification** | 🚧 Planned | Delivers password-reset / invite links out-of-band (Authentication depends on it) |
+| 13 | **Audit & Compliance Logging** | 🚧 Planned | Immutable per-tenant activity ledger — a compliance *pro* of siloing (GDPR/HIPAA) |
+| 14 | **File & Object Storage** | 🚧 Planned | S3-compatible per-tenant file/object storage — isolated buckets/prefixes per tenant, mirroring the DB-per-tenant boundary |
+| 15 | **SSO / Identity Federation** | 🚧 Planned | External IdP (SAML/OIDC) federation mapped to local tenant identities |
+| 16 | **Billing & Subscription** | 🚧 Planned | Multi-tenant SaaS metering, plans, invoicing |
 
 ## 🤝 Contributing & License
 

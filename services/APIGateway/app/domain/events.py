@@ -20,7 +20,7 @@ class GatewayRequestCompleted:
     upstream: str
     status_code: int
     latency_ms: float
-    cache_result: str        # hit | miss | skip | error
+    cache_result: str  # hit | miss | skip | error
     tenant_id: str | None
     occurred_at: datetime = field(default_factory=_now)
 
@@ -30,6 +30,6 @@ class TenantCacheInvalidated:
     """Emitted after all cache entries for a tenant are purged."""
 
     tenant_id: str
-    triggered_by: str        # "write_request" | "rabbitmq_event"
+    triggered_by: str  # "write_request" | "rabbitmq_event"
     keys_deleted: int
     occurred_at: datetime = field(default_factory=_now)

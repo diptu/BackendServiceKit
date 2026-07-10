@@ -41,3 +41,7 @@ pythonpath = [".", "../.."]
 python_version = "3.11"
 strict = true
 exclude = "^(alembic/|tests/fixtures/)"
+
+[[tool.mypy.overrides]]
+module = "shared.*"
+ignore_missing_imports = true

@@ -1,5 +1,31 @@
 # ObservilityManagement — 3-Phase Implementation Plan
 
+## Siloed Multi-tenancy — intentional exception (NOT siloed)
+
+Unlike IAM / User / Tenent / Authentication / OrganizationManagement, this
+service is **deliberately not** moved to database-per-tenant. Telemetry
+(logs, traces, metrics, alerts) is inherently cross-cutting and is stored
+**pooled with a `tenant_id` label/dimension**, not partitioned into a database
+per tenant. Reasons:
+
+- Observability queries are frequently cross-tenant (platform-wide dashboards,
+  fleet health, alerting) — the exact access pattern siloing makes expensive.
+- Time-series/log stores (Prometheus, Loki, Tempo) scale by tenant *label*,
+  not by separate physical databases; one-DB-per-tenant would fight the
+  backend's own multi-tenancy model.
+- The isolation guarantee here is "a tenant can only *read back* its own
+  telemetry" (a query-time filter on the tenant label), enforced at the
+  gateway/query layer — not "a tenant's telemetry lives in its own database".
+
+**Action items (label-based tenancy, not siloing):**
+- [ ] Ensure every emitted log/span/metric carries a `tenant_id` attribute
+      (from the gateway-verified `X-Tenant-ID`), so pooled storage stays
+      query-filterable per tenant.
+- [ ] Enforce tenant-scoped read filters on any query/read API this service
+      exposes, so one tenant cannot read another's telemetry.
+- [ ] Do **not** wire the `shared/db/` per-tenant connection router here — it
+      would be the wrong model for this service.
+
 **Status: Fully implemented — all three phases done, verified against
 real containers, and the seven original services decommissioned.** All
 seven directories (`Monitoring`, `Logging`, `DistributedTracing`,

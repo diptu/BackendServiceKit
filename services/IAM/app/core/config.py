@@ -46,12 +46,38 @@ class Settings(BaseSettings):
     # ---------------------------------------------------------------------
     database_url: str = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5433/nutratenant_identity",
-        description="Primary PostgreSQL connection string.",
+        description="Primary PostgreSQL connection string (shared-schema mode).",
     )
 
     database_pool_size: int = 20
     database_max_overflow: int = 40
     database_pool_timeout: int = 30
+
+    # ---------------------------------------------------------------------
+    # Siloed multi-tenancy (database-per-tenant) — see TODO.md
+    #
+    # Opt-in. When disabled (default) IAM uses the single shared-schema
+    # `database_url` above. When enabled, every request routes to its own
+    # tenant database resolved from `tenant_database_url_template` (with a
+    # `{tenant}` placeholder substituted by the tenant's hex id), and a
+    # request carrying no tenant fails closed — there is no shared fallback.
+    # `tenant_database_overrides` maps a tenant UUID (string) to an explicit
+    # connection string for tenants whose database lives elsewhere. This is a
+    # stand-in for the Tenent-owned Control Plane registry.
+    # ---------------------------------------------------------------------
+    siloed_multitenancy_enabled: bool = False
+    tenant_database_url_template: str | None = None
+    tenant_database_overrides: dict[str, str] = Field(default_factory=dict)
+    tenant_max_engines: int | None = None  # bound hot per-tenant pools; None=∞
+
+    # How a tenant is resolved to a connection string:
+    #   "template"      — derive from tenant_database_url_template (dev/simple)
+    #   "control_plane" — fetch each tenant's DSN from the Tenent Control Plane
+    #                     (production; the tenant→database map + credentials live
+    #                     in Tenent, not in IAM's config).
+    tenant_resolver: Literal["template", "control_plane"] = "template"
+    control_plane_base_url: str | None = None
+    control_plane_timeout: float = 5.0
 
     # ---------------------------------------------------------------------
     # Redis

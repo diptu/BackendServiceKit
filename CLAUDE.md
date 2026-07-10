@@ -4,13 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-**BackendServiceKit** is a mono-repo reference architecture of production-grade Python microservices. It targets enterprise SaaS platforms: multi-tenant IAM, ABAC/RBAC, billing, notifications, observability, etc. The `services/IAM` service is the first fully active implementation; all other `services/*/` directories are design docs (README-only) showing planned architecture.
+**BackendServiceKit** is a mono-repo reference architecture of production-grade Python microservices. It targets enterprise SaaS platforms: multi-tenant IAM, ABAC/RBAC, billing, notifications, observability, etc. Seven services under `services/*/` are fully active implementations with real code, migrations, and passing test suites; every other `services/*/` directory is still a design doc (README-only) showing planned architecture.
 
 **Phase 2** (see `PHASE2.md`) will rewrite performance-critical services in Rust (tonic/axum/gRPC). Python is the current Phase 1 implementation language.
 
-## Active Service: IAM
+## Active Services
 
-All runnable code lives in `services/IAM/`. Every other service directory contains only a `README.md`.
+All seven live under `services/<Name>/` with the same layout (see "App Layer Structure" below) and the same stack. Every other `services/*/` directory contains only a `README.md`.
+
+| Service | Port | What it owns |
+|---|---|---|
+| **IAM** | 8022 | Roles, permissions, groups, entitlements, access reviews, ABAC policy evaluation engine, `UserProjection` (read-only). |
+| **Authentication** | 8024 | Credentials (the only place a password hash exists), JWT access tokens, rotating/revocable refresh tokens, sessions, audit log. MFA/OAuth2.1/OIDC/SSO not yet built — see `services/Authentication/TODO.md`. |
+| **User** | 8023 | Identity CRUD, status lifecycle, profile/preferences/avatar/contacts, platform invitations. Merges what were UserManagement + UserLifecycleManagement + UserProfileManagement. |
+| **Tenent** | 8005 | Tenant CRUD, lifecycle state machine, cross-tenant isolation policy/resource claims. Merges TenantManagement + TenantLifecycle + TenantIsolation. |
+| **OrganizationManagement** | 8021 | Org hierarchy, teams, memberships, invitations. |
+| **APIGateway** | 8080 (Kong: 8000) | Reverse proxy + Redis cache + Celery workers. Verifies every proxied request's JWT locally and overrides the client-supplied `X-Tenant-ID` with the verified claim before forwarding (see `app/services/token_verifier.py`) — everything except `/api/v1/auth/**` requires a valid `Authorization: Bearer` token. |
+| **ObservilityManagement** | 8020 | Merges what would have been seven separate services (Logging, Tracing, Metrics, Monitoring, Alerting, Observability, Health Check) into one container. |
 
 ### Stack
 
@@ -21,7 +31,7 @@ All runnable code lives in `services/IAM/`. Every other service directory contai
 
 ### Config
 
-`services/IAM/app/core/config.py` — pydantic-settings `Settings` class, `@lru_cache` singleton. All env vars map 1-to-1. Key vars:
+Every active service has its own `services/<Name>/app/core/config.py` — pydantic-settings `Settings` class, `@lru_cache` singleton, all env vars map 1-to-1. IAM's is shown below as the reference example:
 
 | Var | Default |
 |-----|---------|
@@ -33,29 +43,34 @@ All runnable code lives in `services/IAM/`. Every other service directory contai
 
 Docs (`/docs`, `/redoc`, `/openapi.json`) are disabled when `ENVIRONMENT=production`.
 
+`SECRET_KEY`/`JWT_ALGORITHM`/`JWT_ISSUER` must be identical across **Authentication** and **APIGateway** specifically — Authentication signs (HS256, shared secret), APIGateway verifies locally rather than calling back over HTTP (same reasoning Tenent's `IsolationService.resolve_context` already used). A real deployment should move this to asymmetric RS256 signing — see `services/Authentication/TODO.md`.
+
 ### App Layer Structure
 
 ```
-services/IAM/app/
+services/<Name>/app/
 ├── main.py                     # FastAPI app factory
 ├── core/config.py              # Settings (pydantic-settings)
-├── api/v1/                     # Route handlers (users, roles, permissions, groups, memberships, entitlements, attributes, access_reviews)
-├── models/                     # SQLAlchemy ORM models (only user_projection.py has content currently)
+├── api/v1/                     # Route handlers
+├── models/                     # SQLAlchemy ORM models
 ├── schemas/                    # Pydantic request/response schemas
 ├── domain/                     # Enums, events, exceptions
 ├── infrastructure/
 │   ├── database/engine.py      # AsyncEngine creation
 │   ├── database/session.py     # async_sessionmaker (SessionLocal)
 │   └── database/dependencies.py # FastAPI get_db() dependency
-├── repositories/               # (stub — to be filled)
-└── services/                   # (stub — to be filled)
+├── repositories/               # Tenant-scoped data access (tenant_id is a required kwarg, not optional)
+└── services/                   # Business logic
 ```
+
+`repositories/` and `services/` are fully implemented in every active service — none of them are stubs. (ObservilityManagement is the one structural outlier: it uses a `domains/<bounded-context>/` vertical-slice layout instead of this horizontal one — not yet reconciled or documented as an intentional exception.)
 
 ### Key Design Decisions
 
-- **UserProjection model**: IAM holds a local read-only materialized view of user data from the User Service, updated via async domain events (`user.created`, `user.updated`, `user.deleted`). It intentionally never stores passwords, MFA secrets, or PII. This eliminates synchronous cross-service dependencies during authorization.
-- **Tenant-scoped queries**: All IAM queries should be tenant-scoped. The `user_projections` table has a composite index on `(tenant_id, email)`.
-- **No foreign keys to external services**: The projection pattern is enforced — IAM models do not reference external service tables.
+- **UserProjection model**: IAM holds a local read-only materialized view of user data from the User Service, updated via async domain events (`user.created`, `user.updated`, `user.deleted`). It intentionally never stores passwords, MFA secrets, or PII — Authentication owns the only password hash in the platform. This eliminates synchronous cross-service dependencies during authorization.
+- **Tenant-scoped queries**: All IAM (and every other service's) queries are tenant-scoped, with `tenant_id` a required keyword argument on repository lookups — never optional. The `user_projections` table has a composite index on `(tenant_id, email)`.
+- **No foreign keys to external services**: The projection pattern is enforced — models do not reference other services' tables via FK; cross-service references are plain columns.
+- **Gateway-enforced trust boundary**: APIGateway verifies the caller's JWT and is the only source of truth for `X-Tenant-ID` forwarded to every other service — a service should never trust that header from anywhere except the gateway.
 
 ### IAM Data Hierarchy
 
@@ -65,7 +80,7 @@ Tenant → Organization → Workspace → Team → Members
                      └→ Resources
 ```
 
-Authorization flow: `User → Roles → Permissions → ABAC Policy Engine → Resource`
+Authorization flow: `User → Roles → Permissions → ABAC Policy Engine → Resource` — the ABAC engine is implemented (`services/IAM/app/services/policy_evaluation_service.py`, `POST /api/v1/authorization/evaluate`): it evaluates a tenant's active policies against subject (+ optional resource) attributes, falls back to plain RBAC permission grants when no policy matches, and default-denies otherwise.
 
 ## Commands
 
@@ -147,17 +162,17 @@ cd services/IAM && bash scripts/bootstrap.sh  # First-time setup for IAM (venv, 
 
 ## CI/CD
 
-- CI (`ci.yml`): finds all `pyproject.toml` under `services/`, runs `uv sync --frozen` → `scripts/lint.sh` (ruff + mypy + pytest) → `docker build`. The `lint.sh` script is what CI actually executes — keep it as the authoritative quality gate.
-- CD (`cd.yml`): builds and pushes Docker images to GHCR.
+- CI (`ci.yml`): finds all `pyproject.toml` under `services/*/` (search depth 3 — `services/<Name>/pyproject.toml`; don't shrink this back to depth 2, that bug previously made CI discover zero services and report green on every push), runs `uv sync --frozen` → `scripts/lint.sh` (ruff + mypy + pytest) → `docker build`. The `lint.sh` script is what CI actually executes — keep it as the authoritative quality gate. Every active service must have its own `scripts/fix.sh`/`scripts/lint.sh` and both `mypy`/`ruff` declared in its own `pyproject.toml` dev dependencies — without the latter, `uv run mypy`/`uv run ruff` silently fall back to whatever's on the system `PATH` instead of the service's own locked versions (this happened to Tenent and APIGateway; fixed, but worth checking for any new service).
+- CD (`cd.yml`): builds and pushes Docker images to GHCR for every service in its `strategy.matrix.service` list — this list is NOT auto-discovered, add new services to it by hand.
 - Local emulation via `act`: `make ci-emulate` / `make cd-emulate` (requires Docker + `act` + `.secrets.local`).
 
 ## Shared Directory
 
-`shared/` contains stubs for cross-service libraries: `cache/`, `messaging/`, `middleware/`, `observability/`, `utils/`. All are currently empty `__init__.py` placeholders — not yet implemented.
+`shared/` contains cross-service libraries: `observability/` is fully implemented (OTel tracing/metrics/logging SDK) and consumed by all seven active services. `cache/`, `messaging/`, `middleware/`, `utils/` remain empty `__init__.py` placeholders — not yet implemented. (Every service currently rolls its own Redis/RabbitMQ/rate-limit wiring directly rather than through a shared layer — worth consolidating there eventually, e.g. the gateway's JWT-verification middleware would be a natural fit for `shared/middleware/` once a second service needs the identical check.)
 
 ## Implementation Order
 
-Active: IAM (Phase 1). Next planned (per `Implementation-order.md`): Tenant Management → Organization → User Management → Group → Membership → Authentication → Session → MFA → Roles → Permissions → Resources → Attributes → ABAC → Authorization → Audit Logging → Observability.
+Active (Phase 1): IAM, Authentication, User, Tenent, OrganizationManagement, APIGateway, ObservilityManagement. Per `Implementation-order.md`'s original phased plan, Authentication and ABAC were meant to come later — both got pulled forward and built directly against IAM's existing RBAC data model rather than waiting for their own dedicated phases. Still not built: Session Management (beyond Authentication's own refresh-token sessions), MFA, SSO/OIDC, Resources, Audit Logging (beyond each service's own local audit tables), and the remaining rows of `Implementation-order.md`.
 
 # Tenant Lifecycle States
 
@@ -184,8 +199,7 @@ TL:           provisioning → pending → active ⇄ suspended
 
 ## Service Responsibilities
 
-- **TenantManagement** (port 8000): authoritative CRUD, owns `draft`/`provisioning`/`pending`/`active`/`suspended`/`archived`/`deleted` states.
-- **TenantLifecycle** (port 8001): authoritative state machine. Drives all transitions; fires HTTP to TM to keep it in sync (fire-and-log — TM failures are non-fatal). Owns the additional `locked` state (proxied to TM as `suspended`).
+TenantManagement (TM) and TenantLifecycle (TL) below describe roles, not separate services — both were merged into **Tenent** (`services/Tenent/`, port 8005; see `services/Tenent/TODO.md`). The distinction is now in-process, not a network boundary: `TenantService` (TM role) does authoritative CRUD and owns `draft`/`provisioning`/`pending`/`active`/`suspended`/`archived`/`deleted`; `TenantLifecycleService` (TL role) drives all transitions and calls `TenantService` directly (no HTTP) to keep it in sync. TL still owns the additional `locked` state (proxied to TM's model as `suspended`).
 
 ## Key Transition Rules
 

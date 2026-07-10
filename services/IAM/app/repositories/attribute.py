@@ -31,12 +31,12 @@ class AttributeRepository(BaseRepository[Attribute]):
         self,
         attribute_id: UUID,
         *,
-        tenant_id: UUID | None = None,
+        tenant_id: UUID,
         user_id: UUID | None = None,
     ) -> Attribute | None:
-        stmt = select(Attribute).where(Attribute.id == attribute_id)
-        if tenant_id is not None:
-            stmt = stmt.where(Attribute.tenant_id == tenant_id)
+        stmt = select(Attribute).where(
+            Attribute.id == attribute_id, Attribute.tenant_id == tenant_id
+        )
         if user_id is not None:
             stmt = stmt.where(Attribute.user_id == user_id)
         result = await self._session.execute(stmt)

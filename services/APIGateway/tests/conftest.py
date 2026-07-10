@@ -6,7 +6,6 @@ import httpx
 import pytest
 import pytest_asyncio
 from fakeredis.aioredis import FakeRedis
-from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
 from app.infrastructure.messaging.publisher import NullPublisher
@@ -18,6 +17,7 @@ from app.services.route_service import RouteService
 # ---------------------------------------------------------------------------
 # Fake infrastructure
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def fake_redis() -> FakeRedis:
@@ -42,6 +42,7 @@ def route_service() -> RouteService:
 # ---------------------------------------------------------------------------
 # App client — Redis/RabbitMQ/httpx are all mocked via app.state overrides
 # ---------------------------------------------------------------------------
+
 
 @pytest_asyncio.fixture
 async def client(fake_redis: FakeRedis) -> AsyncClient:

@@ -23,14 +23,12 @@ def deliver_webhook(self: Any, webhook_url: str, payload: dict[str, Any]) -> Non
     """
     import httpx
 
-    backoff = 30 * (2 ** self.request.retries)
+    backoff = 30 * (2**self.request.retries)
     try:
         with httpx.Client(timeout=15.0) as client:
             resp = client.post(webhook_url, json=payload)
             if not resp.is_success:
-                raise ValueError(
-                    f"Webhook endpoint returned {resp.status_code}: {resp.text[:200]}"
-                )
+                raise ValueError(f"Webhook endpoint returned {resp.status_code}: {resp.text[:200]}")
         logger.info(
             "webhook_delivered",
             extra={"url": webhook_url, "status": resp.status_code},

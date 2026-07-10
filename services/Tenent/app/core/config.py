@@ -51,6 +51,22 @@ class Settings(BaseSettings):
     tenant_provisioning_base_url: str = "http://localhost:8003"
     tenant_provisioning_timeout: float = 5.0
 
+    # Control Plane (Siloed multi-tenancy — see TODO.md)
+    #
+    # When `control_plane_auto_register` is on, entering the `provisioning`
+    # lifecycle state registers the tenant's database home in the Control Plane
+    # from these templates (`{tenant}` = tenant hex id, `{name}` = tenant slug),
+    # and offboarding disables it. Off by default so existing behaviour is
+    # unchanged. Credentials are never taken here — only a `secret_ref`.
+    control_plane_auto_register: bool = False
+    tenant_db_driver: str = "postgresql+asyncpg"
+    tenant_db_host: str = "localhost"
+    tenant_db_port: int = 5432
+    tenant_db_user: str = "postgres"
+    tenant_db_name_template: str = "tenant_{tenant}"
+    tenant_subdomain_template: str = "{name}"
+    tenant_db_secret_ref_template: str | None = None
+
     # Rate limiting
     rate_limit_enabled: bool = True
     default_rate_limit: str = "100/minute"

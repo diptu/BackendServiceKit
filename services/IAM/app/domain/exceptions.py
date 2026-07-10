@@ -133,3 +133,21 @@ class AccessReviewNotFoundError(Exception):
     def __init__(self, access_review_id: UUID) -> None:
         super().__init__(f"Access review {access_review_id} not found.")
         self.access_review_id = access_review_id
+
+
+class PolicyNotFoundError(Exception):
+    def __init__(self, policy_id: UUID) -> None:
+        super().__init__(f"Policy {policy_id} not found.")
+        self.policy_id = policy_id
+
+
+class PolicyNameConflictError(Exception):
+    def __init__(self, tenant_id: UUID, name: str) -> None:
+        super().__init__(f"Policy '{name}' already exists in tenant {tenant_id}.")
+        self.tenant_id = tenant_id
+        self.name = name
+
+
+class InvalidPolicyConditionError(Exception):
+    def __init__(self, detail: str) -> None:
+        super().__init__(f"Invalid policy condition: {detail}")

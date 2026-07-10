@@ -192,40 +192,37 @@ _IAM_PREFIXES = {
     "/api/v1/access-reviews",
     "/api/v1/user-attributes",
     "/api/v1/user-roles",
+    "/api/v1/policies",
+    "/api/v1/authorization",
 }
 
-_USER_MANAGEMENT_PREFIXES = {
+_USER_PREFIXES = {
     "/api/v1/users",
     "/api/v1/platform-invitations",
-}
-
-_USER_LIFECYCLE_MANAGEMENT_PREFIXES = {
-    "/api/v1/user-lifecycle",
-}
-
-_USER_PROFILE_MANAGEMENT_PREFIXES = {
     "/api/v1/profiles",
 }
 
+_AUTHENTICATION_PREFIXES = {"/api/v1/auth"}
+
 # Every non-cacheable prefix — the seven merged ObservilityManagement
-# prefixes above, plus OrganizationManagement's, IAM's, UserManagement's,
-# UserLifecycleManagement's, and UserProfileManagement's (no
-# cache-invalidation event wiring yet, so nothing busts a cached GET after
-# a write).
+# prefixes above, plus OrganizationManagement's, IAM's, User's (the
+# merged UserManagement + UserLifecycleManagement + UserProfileManagement
+# service — see services/User/TODO.md), and Authentication's (credentials/
+# tokens/sessions must never be served stale). No cache-invalidation event
+# wiring yet for the others, so nothing busts a cached GET after a write.
 _NON_CACHEABLE_PREFIXES = (
     _MERGED_SERVICE_PREFIXES
     | _IAM_PREFIXES
-    | _USER_MANAGEMENT_PREFIXES
-    | _USER_LIFECYCLE_MANAGEMENT_PREFIXES
-    | _USER_PROFILE_MANAGEMENT_PREFIXES
+    | _USER_PREFIXES
+    | _AUTHENTICATION_PREFIXES
     | {"/api/v1/organizations"}
 )
 
 
 async def test_list_routes_total_matches_registry(client: AsyncClient) -> None:
     body = (await client.get("/api/v1/gateway/routes")).json()
-    assert body["total"] == 24
-    assert len(body["routes"]) == 24
+    assert body["total"] == 26
+    assert len(body["routes"]) == 26
 
 
 async def test_list_routes_includes_expected_prefixes(client: AsyncClient) -> None:
@@ -239,9 +236,8 @@ async def test_list_routes_includes_expected_prefixes(client: AsyncClient) -> No
         "/api/v1/organizations",
         *_MERGED_SERVICE_PREFIXES,
         *_IAM_PREFIXES,
-        *_USER_MANAGEMENT_PREFIXES,
-        *_USER_LIFECYCLE_MANAGEMENT_PREFIXES,
-        *_USER_PROFILE_MANAGEMENT_PREFIXES,
+        *_USER_PREFIXES,
+        *_AUTHENTICATION_PREFIXES,
     }
 
 
@@ -324,7 +320,7 @@ async def test_gateway_status_upstreams_unreachable_when_no_services(
 
 
 async def test_gateway_status_probes_unique_upstreams_only(client: AsyncClient) -> None:
-    """Routes sharing an upstream are de-duped — still only 8 unique
+    """Routes sharing an upstream are de-duped — still only 7 unique
     upstreams probed even though observability_management and iam each
     cover several routes instead of one: dedup-by-upstream means each
     container's /health is probed once, not repeatedly."""
@@ -332,9 +328,9 @@ async def test_gateway_status_probes_unique_upstreams_only(client: AsyncClient) 
     names = [u["name"] for u in body["upstreams"]]
     assert len(names) == len(set(names)), "upstream names must be unique"
     # tenent + tenant_provisioning + observability_management +
-    # organization_management + iam + user_management +
-    # user_lifecycle_management + user_profile_management
-    assert len(names) == 8
+    # organization_management + iam + user (the merged UserManagement +
+    # UserLifecycleManagement + UserProfileManagement service) + authentication
+    assert len(names) == 7
 
 
 async def test_gateway_status_upstreams_have_name_and_base_url(client: AsyncClient) -> None:
@@ -482,7 +478,7 @@ async def test_kong_sync_syncs_all_routes_when_kong_available(
     kong_client: AsyncClient,
 ) -> None:
     body = (await kong_client.post("/api/v1/gateway/kong/sync")).json()
-    assert len(body["synced"]) == 24
+    assert len(body["synced"]) == 26
     assert len(body["failed"]) == 0
 
 
@@ -492,5 +488,5 @@ async def test_kong_sync_marks_all_failed_when_kong_unreachable(
     resp = await client.post("/api/v1/gateway/kong/sync")
     assert resp.status_code == 200
     body = resp.json()
-    assert len(body["failed"]) == 24
+    assert len(body["failed"]) == 26
     assert len(body["synced"]) == 0

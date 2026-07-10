@@ -28,6 +28,7 @@ from app.models.tenant import Tenant
 from app.models.tenant_contact import TenantContact
 from app.models.tenant_metadata import TenantMetadata
 from app.models.tenant_settings import TenantSettings
+from app.repositories.base import PageResult
 from app.repositories.tenant import TenantFilter, TenantRepository
 from app.repositories.tenant_contact import TenantContactRepository
 from app.repositories.tenant_metadata import TenantMetadataRepository
@@ -92,13 +93,13 @@ class TenantService:
             raise TenantNotFoundError(tenant_id)
         return tenant
 
-    async def list(
+    async def list_tenants(
         self,
         *,
         filters: TenantFilter | None = None,
         cursor: str | None = None,
         limit: int = 20,
-    ) -> object:
+    ) -> PageResult[Tenant]:
         return await self._tenant_repo.list(filters=filters, cursor=cursor, limit=limit)
 
     async def update(self, tenant_id: uuid.UUID, cmd: UpdateTenantCmd) -> Tenant:

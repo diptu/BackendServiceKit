@@ -35,6 +35,18 @@ class Settings(BaseSettings):
     database_max_overflow: int = 40
     database_pool_timeout: int = 30
 
+    # ---------------------------------------------------------------------
+    # Siloed multi-tenancy (database-per-tenant) — opt-in; default OFF keeps
+    # shared-schema. IAM is the reference implementation (services/IAM/TODO.md).
+    # ---------------------------------------------------------------------
+    siloed_multitenancy_enabled: bool = False
+    tenant_database_url_template: str | None = None
+    tenant_database_overrides: dict[str, str] = Field(default_factory=dict)
+    tenant_max_engines: int | None = None
+    tenant_resolver: Literal["template", "control_plane"] = "template"
+    control_plane_base_url: str | None = None
+    control_plane_timeout: float = 5.0
+
     # Security / JWT
     secret_key: str = "CHANGE_ME"
     jwt_algorithm: str = "HS256"

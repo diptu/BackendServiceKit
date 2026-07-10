@@ -20,16 +20,18 @@ logger = logging.getLogger(__name__)
 def warm_tenant_cache(self: Any, tenant_id: str) -> None:
     """Pre-warm cache entries for a frequently accessed tenant.
 
-    Calls TenantManagement and TenantLifecycle GET endpoints synchronously
-    (inside the Celery worker) so subsequent API Gateway requests hit the cache.
+    Calls Tenent's tenant-detail and lifecycle-history GET endpoints
+    synchronously (inside the Celery worker) so subsequent API Gateway
+    requests hit the cache. Tenent merges what used to be the separate
+    TenantManagement and TenantLifecycle services.
     """
     import httpx
 
     from app.core.config import settings
 
     urls = [
-        f"{settings.tenant_management_base_url}/api/v1/tenants/{tenant_id}",
-        f"{settings.tenant_lifecycle_base_url}/api/v1/tenant-lifecycle/{tenant_id}/history",
+        f"{settings.tenent_base_url}/api/v1/tenants/{tenant_id}",
+        f"{settings.tenent_base_url}/api/v1/lifecycle/{tenant_id}/history",
     ]
     try:
         with httpx.Client(timeout=10.0) as client:
@@ -43,7 +45,7 @@ def warm_tenant_cache(self: Any, tenant_id: str) -> None:
                         extra={"url": url, "tenant_id": tenant_id, "error": str(exc)},
                     )
     except Exception as exc:
-        raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
+        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries))
 
 
 @celery_app.task(
@@ -75,4 +77,4 @@ def bulk_invalidate_tenant(self: Any, tenant_id: str) -> dict[str, int]:
         )
         return results
     except Exception as exc:
-        raise self.retry(exc=exc, countdown=10 * (2 ** self.request.retries))
+        raise self.retry(exc=exc, countdown=10 * (2**self.request.retries))

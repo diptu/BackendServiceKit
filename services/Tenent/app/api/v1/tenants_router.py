@@ -83,7 +83,7 @@ async def list_tenants(
     limit: int = Query(20, ge=1, le=100),
 ) -> TenantListResponse:
     filters = TenantFilter(status=status, region=region, search=search)
-    page = await _svc(db).list(filters=filters, cursor=cursor, limit=limit)
+    page = await _svc(db).list_tenants(filters=filters, cursor=cursor, limit=limit)
     return TenantListResponse(
         items=[TenantSummary.model_validate(t) for t in page.items],
         total=page.total,

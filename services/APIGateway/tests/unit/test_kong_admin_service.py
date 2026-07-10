@@ -175,7 +175,7 @@ async def test_list_plugins_returns_list() -> None:
 async def test_sync_routes_success() -> None:
     svc = _make_service()
     result = await svc.sync_routes()
-    assert len(result.synced) == 24
+    assert len(result.synced) == 26
     assert len(result.failed) == 0
     assert len(result.skipped) == 0
     assert set(result.synced) == {
@@ -201,8 +201,10 @@ async def test_sync_routes_success() -> None:
         "/api/v1/user-attributes",
         "/api/v1/user-roles",
         "/api/v1/platform-invitations",
-        "/api/v1/user-lifecycle",
         "/api/v1/profiles",
+        "/api/v1/policies",
+        "/api/v1/authorization",
+        "/api/v1/auth",
     }
 
 
@@ -222,7 +224,7 @@ async def test_sync_routes_service_failure_marks_failed() -> None:
 async def test_sync_routes_admin_unreachable_marks_failed() -> None:
     svc = _make_service(_unreachable_handler)
     result = await svc.sync_routes()
-    assert len(result.failed) == 24
+    assert len(result.failed) == 26
     assert len(result.synced) == 0
 
 
@@ -230,7 +232,7 @@ async def test_sync_routes_total_matches() -> None:
     svc = _make_service()
     result = await svc.sync_routes()
     assert result.total == len(result.synced) + len(result.skipped) + len(result.failed)
-    assert result.total == 24
+    assert result.total == 26
 
 
 async def test_sync_result_is_kong_sync_result_instance() -> None:

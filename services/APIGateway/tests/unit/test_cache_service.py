@@ -29,6 +29,7 @@ def null_svc() -> CacheService:
 # Key building
 # ---------------------------------------------------------------------------
 
+
 def test_build_key_is_deterministic() -> None:
     k1 = CacheService.build_key("tenant_management", "/api/v1/tenants/abc", "limit=20")
     k2 = CacheService.build_key("tenant_management", "/api/v1/tenants/abc", "limit=20")
@@ -62,6 +63,7 @@ def test_build_key_has_prefix() -> None:
 # get / set / miss / hit
 # ---------------------------------------------------------------------------
 
+
 async def test_get_returns_miss_for_absent_key(svc: CacheService) -> None:
     value, result = await svc.get("gw:nonexistent:key")
     assert value is None
@@ -87,6 +89,7 @@ async def test_set_respects_ttl(svc: CacheService, redis: FakeRedis) -> None:
 # ---------------------------------------------------------------------------
 # Tenant-scoped invalidation
 # ---------------------------------------------------------------------------
+
 
 async def test_invalidate_tenant_deletes_indexed_keys(svc: CacheService) -> None:
     tenant_id = "550e8400-e29b-41d4-a716-446655440000"
@@ -121,6 +124,7 @@ async def test_invalidate_all_upstreams(svc: CacheService) -> None:
 # Response encoding / decoding
 # ---------------------------------------------------------------------------
 
+
 def test_encode_decode_roundtrip() -> None:
     status = 200
     headers = {"content-type": "application/json", "x-request-id": "abc-123"}
@@ -145,6 +149,7 @@ def test_encode_decode_empty_body() -> None:
 # ---------------------------------------------------------------------------
 # Degraded mode (Redis=None)
 # ---------------------------------------------------------------------------
+
 
 async def test_get_returns_error_when_redis_unavailable(null_svc: CacheService) -> None:
     _, result = await null_svc.get("any:key")

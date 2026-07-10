@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import (
     LIFECYCLE_VALID_TRANSITIONS,
+    TenantConnectionStatus,
     TenantLifecycleStatus,
     TransitionType,
 )
@@ -24,9 +25,11 @@ from app.domain.exceptions import (
 )
 from app.models.lifecycle_event import TenantLifecycleEvent
 from app.models.lifecycle_state import TenantLifecycleState
+from app.repositories.base import PageResult
 from app.repositories.lifecycle_event import LifecycleEventRepository
 from app.repositories.lifecycle_state import LifecycleStateRepository
 from app.repositories.tenant import TenantRepository
+from app.services.control_plane_service import ControlPlaneService
 from app.services.tenant_service import TenantService
 
 logger = logging.getLogger(__name__)
@@ -89,6 +92,7 @@ class TenantLifecycleService:
             source=source,
         )
         await self._sync_tm(tenant_id, "provision")
+        await self._register_control_plane(tenant_id)
         return state
 
     async def pend(
@@ -243,7 +247,7 @@ class TenantLifecycleService:
         performed_by: uuid.UUID | None = None,
         source: str = "api",
     ) -> TenantLifecycleState:
-        return await self._transition(
+        state = await self._transition(
             tenant_id,
             TransitionType.DELETE,
             TenantLifecycleStatus.DELETED,
@@ -251,6 +255,8 @@ class TenantLifecycleService:
             performed_by=performed_by,
             source=source,
         )
+        await self._deprovision_control_plane(tenant_id)
+        return state
 
     async def get_state(self, tenant_id: uuid.UUID) -> TenantLifecycleState:
         return await self._get_state(tenant_id)
@@ -261,10 +267,72 @@ class TenantLifecycleService:
         *,
         cursor: str | None = None,
         limit: int = 20,
-    ) -> object:
+    ) -> PageResult[TenantLifecycleEvent]:
         return await self._event_repo.list_by_tenant(
             tenant_id, next_cursor=cursor, limit=limit
         )
+
+    # ------------------------------------------------------------------
+    # Control Plane sync (Siloed multi-tenancy — opt-in, fire-and-log)
+    # ------------------------------------------------------------------
+
+    async def _register_control_plane(self, tenant_id: uuid.UUID) -> None:
+        """On provisioning, record the tenant's database home in the Control
+        Plane. Best-effort like the TM syncs — a failure here is logged, never
+        fatal to the lifecycle transition. No-op unless auto-register is on."""
+        from app.core.config import settings
+
+        if not settings.control_plane_auto_register:
+            return
+        tenant = await self._tenant_repo.get_by_id(tenant_id)
+        if tenant is None:
+            return
+        subdomain = settings.tenant_subdomain_template.format(
+            name=tenant.name, tenant=tenant_id.hex
+        ).lower()
+        db_name = settings.tenant_db_name_template.format(
+            tenant=tenant_id.hex, name=tenant.name
+        )
+        secret_ref = (
+            settings.tenant_db_secret_ref_template.format(
+                tenant=tenant_id.hex, name=tenant.name
+            )
+            if settings.tenant_db_secret_ref_template
+            else None
+        )
+        try:
+            await ControlPlaneService(self._session).register(
+                tenant_id,
+                subdomain=subdomain,
+                db_host=settings.tenant_db_host,
+                db_name=db_name,
+                db_user=settings.tenant_db_user,
+                db_driver=settings.tenant_db_driver,
+                db_port=settings.tenant_db_port,
+                secret_ref=secret_ref,
+                region=tenant.region,
+                status=TenantConnectionStatus.PROVISIONING,
+            )
+        except Exception as exc:  # noqa: BLE001 — non-fatal, matches TM sync
+            logger.warning(
+                "control_plane_register_failed",
+                extra={"tenant_id": str(tenant_id), "error": str(exc)},
+            )
+
+    async def _deprovision_control_plane(self, tenant_id: uuid.UUID) -> None:
+        """On offboarding/delete, disable the tenant's Control Plane record so
+        nothing routes to its database. No-op unless auto-register is on."""
+        from app.core.config import settings
+
+        if not settings.control_plane_auto_register:
+            return
+        try:
+            await ControlPlaneService(self._session).deprovision(tenant_id)
+        except Exception as exc:  # noqa: BLE001 — non-fatal, matches TM sync
+            logger.warning(
+                "control_plane_deprovision_failed",
+                extra={"tenant_id": str(tenant_id), "error": str(exc)},
+            )
 
     # ------------------------------------------------------------------
     # Helpers

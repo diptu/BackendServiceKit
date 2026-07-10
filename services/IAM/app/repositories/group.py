@@ -47,12 +47,10 @@ class GroupRepository(BaseRepository[Group]):
         self,
         group_id: UUID,
         *,
-        tenant_id: UUID | None = None,
+        tenant_id: UUID,
         include_deleted: bool = False,
     ) -> Group | None:
-        stmt = select(Group).where(Group.id == group_id)
-        if tenant_id is not None:
-            stmt = stmt.where(Group.tenant_id == tenant_id)
+        stmt = select(Group).where(Group.id == group_id, Group.tenant_id == tenant_id)
         if not include_deleted:
             stmt = stmt.where(Group.deleted_at.is_(None))
         result = await self._session.execute(stmt)

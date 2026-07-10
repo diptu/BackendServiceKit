@@ -6,7 +6,6 @@ import asyncio
 import json
 import logging
 
-import aio_pika
 from aio_pika import ExchangeType
 from aio_pika.abc import AbstractIncomingMessage, AbstractRobustConnection
 
@@ -97,10 +96,7 @@ class TenantEventConsumer:
         async with message.process(requeue=False):
             try:
                 payload = json.loads(message.body)
-                tenant_id: str | None = (
-                    payload.get("tenant_id")
-                    or payload.get("id")
-                )
+                tenant_id: str | None = payload.get("tenant_id") or payload.get("id")
                 if tenant_id:
                     deleted = await self._on_invalidate(str(tenant_id))
                     logger.info(

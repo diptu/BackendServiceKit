@@ -6,6 +6,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
+from typing import TypedDict
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,6 +35,7 @@ from app.infrastructure.cache.redis_cache import (
 from app.models.access_decision_log import AccessDecisionLog
 from app.models.isolation_policy import IsolationPolicy
 from app.repositories.access_decision_log import AccessDecisionLogRepository
+from app.repositories.base import PageResult
 from app.repositories.isolation_policy import IsolationPolicyRepository
 from app.repositories.resource_claim import ResourceClaimRepository
 
@@ -41,6 +43,12 @@ logger = logging.getLogger(__name__)
 
 _DECISION_TTL = 300  # seconds
 _POLICY_TTL = 600
+
+
+class ResolvedContext(TypedDict):
+    tenant_id: uuid.UUID
+    user_id: uuid.UUID | None
+    scopes: list[str]
 
 
 class IsolationService:
@@ -144,7 +152,7 @@ class IsolationService:
     # resolve_context — extract tenant identity from JWT
     # ------------------------------------------------------------------
 
-    async def resolve_context(self, token: str) -> dict[str, object]:
+    async def resolve_context(self, token: str) -> ResolvedContext:
         try:
             from jose import jwt as _jwt  # type: ignore[import-untyped]
 
@@ -157,13 +165,18 @@ class IsolationService:
             if tenant_id_raw is None:
                 raise ContextResolutionError("JWT missing tenant_id claim.")
 
-            return {
-                "tenant_id": uuid.UUID(str(tenant_id_raw)),
-                "user_id": (
+            scopes_raw = payload.get("scopes")
+            scopes = (
+                [str(s) for s in scopes_raw] if isinstance(scopes_raw, list) else []
+            )
+
+            return ResolvedContext(
+                tenant_id=uuid.UUID(str(tenant_id_raw)),
+                user_id=(
                     uuid.UUID(str(payload["user_id"])) if "user_id" in payload else None
                 ),
-                "scopes": payload.get("scopes", []),
-            }
+                scopes=scopes,
+            )
         except ContextResolutionError:
             raise
         except Exception as exc:
@@ -212,7 +225,7 @@ class IsolationService:
 
     async def list_policies(
         self, tenant_id: uuid.UUID, *, cursor: str | None = None, limit: int = 20
-    ) -> object:
+    ) -> PageResult[IsolationPolicy]:
         return await self._policy_repo.list_by_tenant(
             tenant_id, next_cursor=cursor, limit=limit
         )
@@ -239,17 +252,21 @@ class IsolationService:
         await cache_delete(policy_cache_key(str(tenant_id)))
         return result
 
-    async def get_policy(self, policy_id: uuid.UUID) -> IsolationPolicy:
-        policy = await self._policy_repo.get_by_id(policy_id)
+    async def get_policy(
+        self, policy_id: uuid.UUID, tenant_id: uuid.UUID
+    ) -> IsolationPolicy:
+        policy = await self._policy_repo.get_by_id(policy_id, tenant_id=tenant_id)
         if policy is None:
             raise PolicyNotFoundError(policy_id)
         return policy
 
     async def update_policy(
-        self, policy_id: uuid.UUID, updates: dict[str, object]
+        self, policy_id: uuid.UUID, tenant_id: uuid.UUID, updates: dict[str, object]
     ) -> IsolationPolicy:
-        policy = await self.get_policy(policy_id)
-        result = await self._policy_repo.update(policy_id, **updates)
+        policy = await self.get_policy(policy_id, tenant_id)
+        result = await self._policy_repo.update(
+            policy_id, tenant_id=tenant_id, **updates
+        )
         await cache_delete(policy_cache_key(str(policy.tenant_id)))
         return result
 
@@ -259,7 +276,7 @@ class IsolationService:
 
     async def list_decisions(
         self, tenant_id: uuid.UUID, *, cursor: str | None = None, limit: int = 20
-    ) -> object:
+    ) -> PageResult[AccessDecisionLog]:
         return await self._log_repo.list_by_tenant(
             tenant_id, next_cursor=cursor, limit=limit
         )

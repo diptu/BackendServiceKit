@@ -37,13 +37,13 @@ class EntitlementRepository(BaseRepository[Entitlement]):
         await self._session.flush()
 
     async def get_by_id(
-        self, entitlement_id: UUID, *, tenant_id: UUID | None = None
+        self, entitlement_id: UUID, *, tenant_id: UUID
     ) -> Entitlement | None:
         stmt = select(Entitlement).where(
-            Entitlement.id == entitlement_id, Entitlement.deleted_at.is_(None)
+            Entitlement.id == entitlement_id,
+            Entitlement.tenant_id == tenant_id,
+            Entitlement.deleted_at.is_(None),
         )
-        if tenant_id is not None:
-            stmt = stmt.where(Entitlement.tenant_id == tenant_id)
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 

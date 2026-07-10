@@ -12,10 +12,12 @@ from app.models.entitlement import Entitlement
 from app.models.group import Group, GroupMembership
 from app.models.membership import TenantMembership, UserRole
 from app.models.permission import Permission, RolePermission
+from app.models.policy import AbacPolicy
 from app.models.role import Role
 from app.models.user_projection import UserProjection
 
 __all__ = [
+    "AbacPolicy",
     "AccessReview",
     "Attribute",
     "AuditEvent",

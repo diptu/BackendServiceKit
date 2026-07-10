@@ -15,7 +15,7 @@ def svc() -> RouteService:
 
 
 def test_routes_are_registered(svc: RouteService) -> None:
-    assert len(svc.routes) == 24
+    assert len(svc.routes) == 26
 
 
 def test_resolve_tenants_root(svc: RouteService) -> None:
@@ -177,6 +177,8 @@ def test_old_tenant_lifecycle_prefix_no_longer_routed(svc: RouteService) -> None
         "/api/v1/access-reviews",
         "/api/v1/user-attributes",
         "/api/v1/user-roles",
+        "/api/v1/policies",
+        "/api/v1/authorization",
     ],
 )
 def test_resolve_iam_prefixes(svc: RouteService, prefix: str) -> None:
@@ -186,34 +188,55 @@ def test_resolve_iam_prefixes(svc: RouteService, prefix: str) -> None:
     assert route.cache_ttl == 0
 
 
-@pytest.mark.parametrize("prefix", ["/api/v1/users", "/api/v1/platform-invitations"])
-def test_resolve_user_management_prefixes(svc: RouteService, prefix: str) -> None:
+@pytest.mark.parametrize(
+    "prefix", ["/api/v1/users", "/api/v1/platform-invitations", "/api/v1/profiles"]
+)
+def test_resolve_user_prefixes(svc: RouteService, prefix: str) -> None:
     route = svc.resolve(prefix)
-    assert route.upstream == UpstreamService.USER_MANAGEMENT
+    assert route.upstream == UpstreamService.USER
     assert route.cacheable_methods == frozenset()
     assert route.cache_ttl == 0
 
 
-def test_resolve_users_sub_paths_route_to_user_management(svc: RouteService) -> None:
-    """/api/v1/users/{id} sub-paths route to UserManagement now, not IAM —
-    IAM's own attribute-assignment and role-assignment sub-resources were
-    renamed to /api/v1/user-attributes/{id} and /api/v1/user-roles/{id}
-    specifically to avoid being swallowed by this prefix (plain string
-    matching, no path templating). The role-assignment rename was a real,
-    previously undetected gap: roles_router.py defines that path inline
-    with no router-level prefix=, so the original /api/v1/users repoint
-    missed it — /api/v1/users/{id}/roles was silently routing to
-    UserManagement (a 404) until this was found and fixed."""
-    sub_path = svc.resolve("/api/v1/users/550e8400-e29b-41d4-a716-446655440000/activate")
-    assert sub_path.upstream == UpstreamService.USER_MANAGEMENT
+def test_resolve_authentication_prefix(svc: RouteService) -> None:
+    route = svc.resolve("/api/v1/auth")
+    assert route.upstream == UpstreamService.AUTHENTICATION
+    assert route.base_url == "http://localhost:8024"
+    assert route.cacheable_methods == frozenset()
+    assert route.cache_ttl == 0
 
-    attributes = svc.resolve(
-        "/api/v1/user-attributes/550e8400-e29b-41d4-a716-446655440000"
-    )
+
+def test_resolve_users_sub_paths_route_to_user(svc: RouteService) -> None:
+    """/api/v1/users/{id} sub-paths route to User (the merged
+    UserManagement + UserLifecycleManagement + UserProfileManagement
+    service — see services/User/TODO.md), not IAM. IAM's own
+    attribute-assignment and role-assignment sub-resources were renamed to
+    /api/v1/user-attributes/{id} and /api/v1/user-roles/{id} specifically
+    to avoid being swallowed by this prefix (plain string matching, no
+    path templating). The role-assignment rename was a real, previously
+    undetected gap: roles_router.py defines that path inline with no
+    router-level prefix=, so the original /api/v1/users repoint missed it
+    — /api/v1/users/{id}/roles was silently routing to UserManagement (a
+    404) until this was found and fixed. Status-lifecycle transitions
+    (lock/unlock/restore/onboard/offboard) live directly under
+    /api/v1/users/{id}/... now too — the merge removed the reason a
+    separate /api/v1/user-lifecycle prefix ever existed."""
+    sub_path = svc.resolve("/api/v1/users/550e8400-e29b-41d4-a716-446655440000/activate")
+    assert sub_path.upstream == UpstreamService.USER
+
+    lock = svc.resolve("/api/v1/users/550e8400-e29b-41d4-a716-446655440000/lock")
+    assert lock.upstream == UpstreamService.USER
+
+    attributes = svc.resolve("/api/v1/user-attributes/550e8400-e29b-41d4-a716-446655440000")
     assert attributes.upstream == UpstreamService.IAM
 
     roles = svc.resolve("/api/v1/user-roles/550e8400-e29b-41d4-a716-446655440000")
     assert roles.upstream == UpstreamService.IAM
+
+
+def test_resolve_profiles_sub_paths(svc: RouteService) -> None:
+    route = svc.resolve("/api/v1/profiles/550e8400-e29b-41d4-a716-446655440000/preferences")
+    assert route.upstream == UpstreamService.USER
 
 
 def test_tenant_memberships_does_not_collide_with_tenent(svc: RouteService) -> None:
@@ -224,9 +247,9 @@ def test_tenant_memberships_does_not_collide_with_tenent(svc: RouteService) -> N
     assert route.upstream == UpstreamService.IAM
 
 
-def test_resolve_by_upstream_iam_returns_eight_routes(svc: RouteService) -> None:
+def test_resolve_by_upstream_iam_returns_ten_routes(svc: RouteService) -> None:
     routes = svc.resolve_by_upstream(UpstreamService.IAM)
-    assert len(routes) == 8
+    assert len(routes) == 10
     prefixes = {r.prefix for r in routes}
     assert prefixes == {
         "/api/v1/roles",
@@ -237,59 +260,15 @@ def test_resolve_by_upstream_iam_returns_eight_routes(svc: RouteService) -> None
         "/api/v1/access-reviews",
         "/api/v1/user-attributes",
         "/api/v1/user-roles",
+        "/api/v1/policies",
+        "/api/v1/authorization",
     }
     assert len({r.base_url for r in routes}) == 1
 
 
-def test_resolve_by_upstream_user_management_returns_two_routes(svc: RouteService) -> None:
-    routes = svc.resolve_by_upstream(UpstreamService.USER_MANAGEMENT)
-    assert len(routes) == 2
+def test_resolve_by_upstream_user_returns_three_routes(svc: RouteService) -> None:
+    routes = svc.resolve_by_upstream(UpstreamService.USER)
+    assert len(routes) == 3
     prefixes = {r.prefix for r in routes}
-    assert prefixes == {"/api/v1/users", "/api/v1/platform-invitations"}
+    assert prefixes == {"/api/v1/users", "/api/v1/platform-invitations", "/api/v1/profiles"}
     assert len({r.base_url for r in routes}) == 1
-
-
-def test_resolve_user_lifecycle_management_prefix(svc: RouteService) -> None:
-    route = svc.resolve("/api/v1/user-lifecycle")
-    assert route.upstream == UpstreamService.USER_LIFECYCLE_MANAGEMENT
-    assert route.cacheable_methods == frozenset()
-    assert route.cache_ttl == 0
-
-
-def test_user_lifecycle_does_not_collide_with_tenent_lifecycle(svc: RouteService) -> None:
-    """/api/v1/user-lifecycle must route to UserLifecycleManagement, not
-    Tenent's own /api/v1/lifecycle prefix — distinct literal strings, no
-    shared prefix, so no collision risk here (unlike the tenant-memberships
-    and attributes cases elsewhere in this file)."""
-    route = svc.resolve("/api/v1/user-lifecycle/550e8400-e29b-41d4-a716-446655440000/lock")
-    assert route.upstream == UpstreamService.USER_LIFECYCLE_MANAGEMENT
-
-
-def test_resolve_by_upstream_user_lifecycle_management_returns_one_route(
-    svc: RouteService,
-) -> None:
-    routes = svc.resolve_by_upstream(UpstreamService.USER_LIFECYCLE_MANAGEMENT)
-    assert len(routes) == 1
-    assert routes[0].prefix == "/api/v1/user-lifecycle"
-
-
-def test_resolve_user_profile_management_prefix(svc: RouteService) -> None:
-    route = svc.resolve("/api/v1/profiles")
-    assert route.upstream == UpstreamService.USER_PROFILE_MANAGEMENT
-    assert route.cacheable_methods == frozenset()
-    assert route.cache_ttl == 0
-
-
-def test_resolve_profiles_sub_paths(svc: RouteService) -> None:
-    route = svc.resolve(
-        "/api/v1/profiles/550e8400-e29b-41d4-a716-446655440000/preferences"
-    )
-    assert route.upstream == UpstreamService.USER_PROFILE_MANAGEMENT
-
-
-def test_resolve_by_upstream_user_profile_management_returns_one_route(
-    svc: RouteService,
-) -> None:
-    routes = svc.resolve_by_upstream(UpstreamService.USER_PROFILE_MANAGEMENT)
-    assert len(routes) == 1
-    assert routes[0].prefix == "/api/v1/profiles"

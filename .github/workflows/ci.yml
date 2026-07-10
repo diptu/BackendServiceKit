@@ -32,7 +32,7 @@ jobs:
       - name: Process Python Services
         run: |
           # Find all directories containing a pyproject.toml file (excluding .venv)
-          SERVICES=$(find . -maxdepth 2 -name "pyproject.toml" -not -path "*/.*" | xargs -I {} dirname {})
+          SERVICES=$(find . -maxdepth 3 -name "pyproject.toml" -not -path "*/.*" | xargs -I {} dirname {})
           
           if [ -z "$SERVICES" ]; then
             echo "No Python services with pyproject.toml found."

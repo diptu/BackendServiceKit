@@ -20,6 +20,7 @@ from app.core.logging import configure_logging
 from app.core.openapi import TAGS_METADATA
 from app.infrastructure.cache.redis_client import close_redis_client, create_redis_client
 from app.infrastructure.messaging.consumer import TenantEventConsumer
+from app.middleware.tenant_resolver import TenantResolverMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +104,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("redis_connected", extra={"url": settings.redis_url})
         try:
             from shared.observability.instrumentation.redis import instrument_redis
+
             instrument_redis()
         except Exception:
             pass
@@ -170,6 +172,10 @@ app = FastAPI(
     openapi_url=_openapi_url,
     lifespan=lifespan,
 )
+
+# Tenant Resolver runs inside CORS (added before it, so CORS stays outermost
+# and handles preflight first). No-op unless tenant_resolver_enabled.
+app.add_middleware(TenantResolverMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

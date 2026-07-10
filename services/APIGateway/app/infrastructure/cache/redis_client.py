@@ -13,9 +13,9 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
-async def create_redis_client() -> AsyncRedis:  # type: ignore[type-arg]
+async def create_redis_client() -> AsyncRedis:
     """Create and return a connected async Redis client."""
-    client: AsyncRedis = Redis.from_url(  # type: ignore[type-arg]
+    client: AsyncRedis = Redis.from_url(
         settings.redis_url,
         encoding="utf-8",
         decode_responses=False,  # raw bytes — we handle encoding in CacheService
@@ -26,10 +26,10 @@ async def create_redis_client() -> AsyncRedis:  # type: ignore[type-arg]
     return client
 
 
-async def close_redis_client(client: AsyncRedis) -> None:  # type: ignore[type-arg]
+async def close_redis_client(client: AsyncRedis) -> None:
     await client.aclose()
 
 
-def get_redis(request: Request) -> AsyncRedis | None:  # type: ignore[type-arg]
+def get_redis(request: Request) -> AsyncRedis | None:
     """FastAPI dependency: returns the shared Redis client or None when unavailable."""
-    return getattr(request.app.state, "redis", None)  # type: ignore[no-any-return]
+    return getattr(request.app.state, "redis", None)

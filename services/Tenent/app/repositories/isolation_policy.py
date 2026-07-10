@@ -22,9 +22,13 @@ class IsolationPolicyRepository(BaseRepository[IsolationPolicy]):
         await self._session.refresh(policy)
         return policy
 
-    async def get_by_id(self, policy_id: UUID) -> IsolationPolicy | None:
+    async def get_by_id(
+        self, policy_id: UUID, *, tenant_id: UUID
+    ) -> IsolationPolicy | None:
         result = await self._session.execute(
-            select(IsolationPolicy).where(IsolationPolicy.id == policy_id)
+            select(IsolationPolicy).where(
+                IsolationPolicy.id == policy_id, IsolationPolicy.tenant_id == tenant_id
+            )
         )
         return result.scalar_one_or_none()
 
@@ -81,18 +85,22 @@ class IsolationPolicyRepository(BaseRepository[IsolationPolicy]):
             items=items, total=total, has_more=has_more, next_cursor=cursor
         )
 
-    async def update(self, policy_id: UUID, **kwargs: object) -> IsolationPolicy:
+    async def update(
+        self, policy_id: UUID, *, tenant_id: UUID, **kwargs: object
+    ) -> IsolationPolicy:
         await self._session.execute(
             update(IsolationPolicy)
-            .where(IsolationPolicy.id == policy_id)
+            .where(
+                IsolationPolicy.id == policy_id, IsolationPolicy.tenant_id == tenant_id
+            )
             .values(**kwargs)
         )
         await self._session.flush()
-        policy = await self.get_by_id(policy_id)
+        policy = await self.get_by_id(policy_id, tenant_id=tenant_id)
         assert policy is not None
         return policy
 
     async def toggle_active(
-        self, policy_id: UUID, *, is_active: bool
+        self, policy_id: UUID, *, tenant_id: UUID, is_active: bool
     ) -> IsolationPolicy:
-        return await self.update(policy_id, is_active=is_active)
+        return await self.update(policy_id, tenant_id=tenant_id, is_active=is_active)

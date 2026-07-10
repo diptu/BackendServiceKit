@@ -198,7 +198,7 @@ async def update_policy(
     except IsolationValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     try:
-        updated = await _svc(db).update_policy(policy.id, updates)
+        updated = await _svc(db).update_policy(policy.id, policy.tenant_id, updates)
     except PolicyNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return PolicyResponse.model_validate(updated)

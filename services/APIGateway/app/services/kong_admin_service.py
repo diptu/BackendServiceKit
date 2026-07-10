@@ -36,10 +36,9 @@ KONG_ROUTE_PREFIX_MAP: dict[str, str] = {
     "/api/v1/access-reviews": "nutratenant-iam",
     "/api/v1/user-attributes": "nutratenant-iam",
     "/api/v1/user-roles": "nutratenant-iam",
-    "/api/v1/users": "nutratenant-user-management",
-    "/api/v1/platform-invitations": "nutratenant-user-management",
-    "/api/v1/user-lifecycle": "nutratenant-user-lifecycle-management",
-    "/api/v1/profiles": "nutratenant-user-profile-management",
+    "/api/v1/users": "nutratenant-user",
+    "/api/v1/platform-invitations": "nutratenant-user",
+    "/api/v1/profiles": "nutratenant-user",
     "/api/v1/gateway": "nutratenant-api-gateway",
 }
 
@@ -79,25 +78,29 @@ class KongAdminService:
         """Return Kong node status (connections, memory, worker states)."""
         resp = await self._client.get(f"{self._base_url}/status")
         resp.raise_for_status()
-        return resp.json()
+        body: dict[str, Any] = resp.json()
+        return body
 
     async def list_services(self) -> list[dict[str, Any]]:
         """Return all services registered with Kong."""
         resp = await self._client.get(f"{self._base_url}/services")
         resp.raise_for_status()
-        return resp.json().get("data", [])
+        data: list[dict[str, Any]] = resp.json().get("data", [])
+        return data
 
     async def list_routes(self) -> list[dict[str, Any]]:
         """Return all routes registered with Kong."""
         resp = await self._client.get(f"{self._base_url}/routes")
         resp.raise_for_status()
-        return resp.json().get("data", [])
+        data: list[dict[str, Any]] = resp.json().get("data", [])
+        return data
 
     async def list_plugins(self) -> list[dict[str, Any]]:
         """Return all active plugins (global + service-scoped + route-scoped)."""
         resp = await self._client.get(f"{self._base_url}/plugins")
         resp.raise_for_status()
-        return resp.json().get("data", [])
+        data: list[dict[str, Any]] = resp.json().get("data", [])
+        return data
 
     async def sync_routes(self) -> KongSyncResult:
         """Upsert FastAPI route registry into Kong via the Admin API.

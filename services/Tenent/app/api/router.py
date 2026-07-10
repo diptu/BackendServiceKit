@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.api.v1.control_plane_router import router as control_plane_router
 from app.api.v1.health_router import router as health_router
 from app.api.v1.isolation_router import router as isolation_router
 from app.api.v1.lifecycle_router import router as lifecycle_router
@@ -19,5 +20,6 @@ _v1 = APIRouter(prefix="/api/v1")
 _v1.include_router(tenants_router)
 _v1.include_router(lifecycle_router)
 _v1.include_router(isolation_router)
+_v1.include_router(control_plane_router)
 
 api_router.include_router(_v1)

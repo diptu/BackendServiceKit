@@ -37,4 +37,4 @@ def audit_request(self: Any, event_data: dict[str, Any]) -> None:
             },
         )
     except Exception as exc:
-        raise self.retry(exc=exc, countdown=30 * (2 ** self.request.retries))
+        raise self.retry(exc=exc, countdown=30 * (2**self.request.retries))

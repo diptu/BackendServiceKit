@@ -29,11 +29,11 @@ class UserProjectionFilter:
 
 class UserProjectionRepository(BaseRepository[UserProjection]):
     async def get_by_id(
-        self, user_id: UUID, *, tenant_id: UUID | None = None
+        self, user_id: UUID, *, tenant_id: UUID
     ) -> UserProjection | None:
-        stmt = select(UserProjection).where(UserProjection.id == user_id)
-        if tenant_id is not None:
-            stmt = stmt.where(UserProjection.tenant_id == tenant_id)
+        stmt = select(UserProjection).where(
+            UserProjection.id == user_id, UserProjection.tenant_id == tenant_id
+        )
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 

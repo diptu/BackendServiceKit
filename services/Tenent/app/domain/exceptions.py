@@ -174,3 +174,42 @@ class ContextResolutionError(IsolationError):
 
 class IsolationValidationError(IsolationError):
     """422 — domain-level input validation failure."""
+
+
+# ---------------------------------------------------------------------------
+# Control Plane exceptions (Siloed multi-tenancy)
+# ---------------------------------------------------------------------------
+
+
+class TenantConnectionNotFoundError(Exception):
+    """404 — no Control Plane connection record for this tenant."""
+
+    def __init__(self, tenant_id: UUID) -> None:
+        super().__init__(f"No connection registered for tenant {tenant_id}.")
+        self.tenant_id = tenant_id
+
+
+class SubdomainNotFoundError(Exception):
+    """404 — no tenant is registered for this subdomain."""
+
+    def __init__(self, subdomain: str) -> None:
+        super().__init__(f"No tenant registered for subdomain '{subdomain}'.")
+        self.subdomain = subdomain
+
+
+class SubdomainConflictError(Exception):
+    """409 — the subdomain is already taken by a different tenant."""
+
+    def __init__(self, subdomain: str) -> None:
+        super().__init__(f"Subdomain '{subdomain}' is already registered.")
+        self.subdomain = subdomain
+
+
+class TenantSecretUnavailableError(Exception):
+    """500 — the connection's secret_ref could not be resolved to a
+    credential, so a usable DSN cannot be assembled. Callers must fail closed
+    rather than connect without credentials."""
+
+    def __init__(self, secret_ref: str) -> None:
+        super().__init__(f"Secret '{secret_ref}' could not be resolved.")
+        self.secret_ref = secret_ref

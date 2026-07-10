@@ -1,5 +1,27 @@
 # OrganizationManagement — Implementation Notes
 
+## Siloed Multi-tenancy (database-per-tenant) — opt-in
+
+Supports the platform's Siloed multi-tenancy standard, mirroring IAM (the
+reference implementation — see `services/IAM/TODO.md`):
+
+- `get_db` (`app/infrastructure/database/dependencies.py`) routes each request
+  to its tenant's own database when `siloed_multitenancy_enabled`, failing
+  closed (400) if no `X-Tenant-ID` is present. Default OFF → shared-schema
+  unchanged.
+- `app/infrastructure/database/tenant_routing.py` builds the shared
+  `TenantEngineRegistry` (`shared/db/`); `tenant_resolver` selects the dev
+  `template` resolver or the production `control_plane` resolver (fetches each
+  tenant's DSN from Tenent). Config flags in `app/core/config.py`.
+- Per-tenant migrations: `alembic/env.py` accepts a target URL; run
+  `scripts/tenant_migrations.py` to apply `upgrade head` across tenant DBs.
+- `tenant_id` column + required-kwarg scoping stays as defense-in-depth.
+- Verified: 60/60 tests (12 in `tests/unit/test_siloed_multitenancy.py`); ruff
+  clean; 0 new mypy errors.
+
+Blocked (not this service's to build): physical `CREATE DATABASE`/drop on
+tenant provisioning/offboarding (Tenent + infra), PgBouncer, secrets backend.
+
 **Status: Implemented.** Every endpoint in `README.md`'s API Reference is
 live; 48/48 tests pass; wired into `docker-compose.yml` and APIGateway's
 route registry; Docker image builds and boots for real (see "Docker

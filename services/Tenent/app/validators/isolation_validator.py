@@ -65,8 +65,8 @@ def validate_policy_update(updates: dict[str, object]) -> dict[str, object]:
             continue
         if key == "policy_type" and value is not None:
             clean[key] = str(validate_policy_type(str(value)))
-        elif key == "allowed_partner_tenant_ids" and value is not None:
-            clean[key] = [str(UUID(str(tid))) for tid in list(value)]  # type: ignore[arg-type]
+        elif key == "allowed_partner_tenant_ids" and isinstance(value, list):
+            clean[key] = [str(UUID(str(tid))) for tid in value]
         else:
             clean[key] = value
     return clean
