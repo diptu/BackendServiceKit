@@ -17,11 +17,13 @@ import app.models.lifecycle_event  # noqa: F401
 import app.models.lifecycle_state  # noqa: F401
 import app.models.resource_claim  # noqa: F401
 import app.models.tenant  # noqa: F401
+import app.models.tenant_connection  # noqa: F401
 import app.models.tenant_contact  # noqa: F401
 import app.models.tenant_metadata  # noqa: F401
 import app.models.tenant_settings  # noqa: F401
 from app.core.config import settings
 from app.infrastructure.database.base import Base
+from app.infrastructure.database.utils import resolve_ssl
 
 config = context.config
 if config.config_file_name is not None:
@@ -49,7 +51,10 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    engine = create_async_engine(settings.database_url, poolclass=pool.NullPool)
+    url, connect_args = resolve_ssl(settings.database_url)
+    engine = create_async_engine(
+        url, connect_args=connect_args, poolclass=pool.NullPool
+    )
     async with engine.begin() as conn:
         await conn.run_sync(do_run_migrations)
     await engine.dispose()
