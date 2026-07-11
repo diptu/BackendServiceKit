@@ -11,6 +11,7 @@ import app.models  # noqa: F401
 from alembic import context
 from app.core.config import settings
 from app.infrastructure.database.base import Base
+from app.infrastructure.database.utils import resolve_ssl
 
 config = context.config
 if config.config_file_name is not None:
@@ -50,7 +51,10 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    engine = create_async_engine(_target_url(), poolclass=pool.NullPool)
+    url, connect_args = resolve_ssl(_target_url())
+    engine = create_async_engine(
+        url, connect_args=connect_args, poolclass=pool.NullPool
+    )
     async with engine.begin() as conn:
         await conn.run_sync(do_run_migrations)
     await engine.dispose()
